@@ -13,6 +13,7 @@ import {
 } from './api';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { ReplyGenerator } from './components/ReplyGenerator';
+import { StyleTestPanel } from './components/StyleTestPanel';
 
 const defaultProvider: LlmProviderConfig = {
   id: 'local-mock',
@@ -68,7 +69,7 @@ export function App() {
     <main className="window-shell">
       <header className="titlebar">
         <div>
-          <p className="eyebrow">Phase 4 Core Loop</p>
+          <p className="eyebrow">Phase 2 Style Calibration</p>
           <h1>AI Chat Wingman</h1>
         </div>
         <span className="status-pill">{providers.length || 0} Providers</span>
@@ -85,6 +86,8 @@ export function App() {
       ) : null}
 
       {onboardingStatus?.has_default_profile ? <ReplyGenerator /> : null}
+
+  {onboardingStatus?.has_default_profile ? <StyleTestPanel /> : null}
 
       <section className="panel">
         <div className="section-heading">

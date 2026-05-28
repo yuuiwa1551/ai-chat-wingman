@@ -312,6 +312,80 @@ input[type="range"] {
   font-size: 13px;
 }
 
+.style-test-panel {
+  border-color: #c9d4c2;
+  background: rgba(255, 254, 250, 0.9);
+}
+
+.chat-transcript {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chat-message {
+  max-width: 88%;
+  padding: 10px 12px;
+  border: 1px solid #d7ded8;
+  border-radius: 8px;
+  background: #fbfdfb;
+}
+
+.chat-message.user {
+  justify-self: end;
+  border-color: #b8cbbb;
+  background: #eaf4ec;
+}
+
+.chat-message.target {
+  justify-self: start;
+}
+
+.chat-message.streaming {
+  border-style: dashed;
+}
+
+.chat-message span {
+  display: block;
+  margin-bottom: 4px;
+  color: #607568;
+  font-size: 12px;
+}
+
+.chat-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.chat-compose {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chat-compose textarea {
+  min-height: 84px;
+}
+
+.analysis-box {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #c8d7cc;
+  border-radius: 8px;
+  background: #f5faf5;
+}
+
+.analysis-box p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.analysis-box small {
+  color: #607568;
+  line-height: 1.45;
+}
+
 .status-line {
   margin-top: auto;
   padding: 10px 2px;

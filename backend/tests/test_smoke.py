@@ -158,6 +158,52 @@ def test_reply_generation_stream_saves_conversation_and_selection() -> None:
         assert selected == done["replies"][0]
 
 
+def test_style_test_session_message_and_analysis_updates_profile() -> None:
+    from app.db.database import SessionLocal
+    from app.db.models import StyleTestMessage, StyleTestSession, UserProfile, UserProfileVersion
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        presets = client.get("/onboarding/style-presets").json()["presets"]
+        if not client.get("/onboarding/status").json()["has_default_profile"]:
+            client.post(
+                "/onboarding/default-profile",
+                json={"name": "默认人设", "selected_preset_ids": [presets[0]["id"]], "avoid_patterns": ["不要像 AI"]},
+            )
+
+        create_response = client.post(
+            "/style-test/sessions",
+            json={"target_type": "朋友", "scenario": "对方工作很累，回复欲望不高。"},
+        )
+        assert create_response.status_code == 200
+        session_id = create_response.json()["session"]["id"]
+
+        message_response = client.post(f"/style-test/sessions/{session_id}/message", json={"content": "那你先歇会儿，不急着回我。"})
+        assert message_response.status_code == 200
+        assert "event: token" in message_response.text
+        done = _sse_payload(message_response.text, "done")
+        assert done["message_id"] >= 1
+        assert done["text"]
+
+        analysis_response = client.post(f"/style-test/sessions/{session_id}/analysis")
+        assert analysis_response.status_code == 200
+        body = analysis_response.json()
+        assert body["analysis"]["style_summary"]
+        assert body["profile"]["source_type"] == "style_test"
+        assert body["profile"]["current_version"] >= 2
+
+        with SessionLocal() as db:
+            session = db.get(StyleTestSession, session_id)
+            assert session is not None
+            assert session.status == "analyzed"
+            messages = db.query(StyleTestMessage).filter(StyleTestMessage.session_id == session_id).all()
+            assert {message.role for message in messages} == {"user", "simulated_target"}
+            profile = db.get(UserProfile, body["profile"]["id"])
+            assert profile is not None
+            versions = db.query(UserProfileVersion).filter(UserProfileVersion.profile_id == profile.id).all()
+            assert any(version.merge_reason == "style_test_merge" for version in versions)
+
+
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
     for block in response_text.split("\n\n"):
         if f"event: {event_name}" not in block:

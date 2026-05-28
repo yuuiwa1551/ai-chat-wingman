@@ -2,6 +2,9 @@ from __future__ import annotations
 
 PROMPT_VERSIONS: dict[str, str] = {
     "generate_reply": "generate_reply_v1",
+    "simulate_style_test": "simulate_style_test_v1",
+    "analyze_style_test": "analyze_style_test_v1",
+    "merge_profile": "merge_profile_v1",
 }
 
 

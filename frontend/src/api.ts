@@ -28,6 +28,7 @@ export interface UserProfile {
   style_summary: string;
   generation_guideline: string;
   is_default: boolean;
+  current_version: number;
 }
 
 export interface ReplyGeneratePayload {
@@ -61,6 +62,32 @@ export interface ConversationRecord {
   llm_call_id: number | null;
   generated_replies: string | null;
   selected_reply: string | null;
+}
+
+export interface StyleTestSession {
+  id: number;
+  target_type: string;
+  scenario: string;
+  simulated_target_profile: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StyleTestMessage {
+  id: number;
+  session_id: number;
+  role: 'user' | 'simulated_target';
+  content: string;
+  created_at: string;
+}
+
+export interface StyleTestAnalysis {
+  style_summary: string;
+  tone_features: Record<string, number | string>;
+  common_patterns: string[];
+  avoid_patterns: string[];
+  generation_guideline: string;
 }
 
 interface SseHandlers {
@@ -200,6 +227,68 @@ export async function selectReply(conversationId: number, selectedIndex: number)
     body: JSON.stringify({ selected_index: selectedIndex }),
   });
   return body.conversation;
+}
+
+export async function createStyleTestSession(payload: {
+  target_type: string;
+  scenario: string;
+  simulated_target_profile?: string | null;
+}): Promise<StyleTestSession> {
+  const body = await requestJson<{ session: StyleTestSession }>('/style-test/sessions', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return body.session;
+}
+
+export async function sendStyleTestMessage(
+  sessionId: number,
+  content: string,
+  handlers: {
+    onUserMessage?: (message: StyleTestMessage) => void;
+    onToken?: (delta: string) => void;
+  } = {},
+): Promise<{ message_id: number; text: string }> {
+  const response = await fetch(`${apiBaseUrl}/style-test/sessions/${sessionId}/message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok || !response.body) {
+    const message = await response.text();
+    throw new Error(message || `Style test message failed: ${response.status}`);
+  }
+
+  let done: { message_id: number; text: string } | null = null;
+  await readSseResponse(response, {
+    onEvent(eventName, data) {
+      if (eventName === 'user_message') {
+        handlers.onUserMessage?.((data as { message: StyleTestMessage }).message);
+      }
+      if (eventName === 'token') {
+        handlers.onToken?.((data as { delta: string }).delta);
+      }
+      if (eventName === 'done') {
+        done = data as { message_id: number; text: string };
+      }
+      if (eventName === 'error') {
+        throw new Error((data as { message?: string }).message || 'Style test message failed');
+      }
+    },
+  });
+
+  if (!done) {
+    throw new Error('Style test message ended without a done event');
+  }
+  return done;
+}
+
+export async function analyzeStyleTestSession(sessionId: number): Promise<{
+  analysis: StyleTestAnalysis;
+  profile: UserProfile;
+  llm_call_id: number;
+}> {
+  return requestJson(`/style-test/sessions/${sessionId}/analysis`, { method: 'POST' });
 }
 
 async function readSseResponse(response: Response, handlers: SseHandlers): Promise<void> {
