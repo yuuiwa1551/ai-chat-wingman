@@ -9,10 +9,9 @@ __pycache__/
 .mypy_cache/
 .coverage
 htmlcov/
-build/
-dist/
+backend/build/
+backend/dist/
 *.egg-info/
-*.spec
 
 # Node / frontend
 node_modules/

@@ -36,3 +36,76 @@ AI 帮聊助手：Windows 桌面悬浮窗优先，使用 PyWebView + React + Vit
 2. [docs/ai_chat_wingman_spec_plan.md](docs/ai_chat_wingman_spec_plan.md)
 
 每次只实现一个明确阶段或一个小任务，不允许一次性铺完整产品。
+
+## Phase 0 Development
+
+### Backend
+
+```powershell
+Set-Location backend
+uv run pytest -v
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+Useful endpoints:
+
+- `GET /healthz`
+- `GET /demo/sse`
+- `POST /jobs/demo`
+- `GET /jobs/{id}`
+- `GET /settings/llm/providers`
+- `PUT /settings/llm/providers/{id}`
+- `POST /settings/llm/providers/{id}/test`
+- `POST /reply/generate`
+- `POST /reply/{conversation_id}/select`
+
+Phase 4 reply generation is a streaming POST endpoint. It creates a `chat_sessions` row when needed, saves the generation in `conversations`, writes the aggregated LLM metadata to `llm_calls`, and accepts the final user choice with `/reply/{conversation_id}/select`.
+
+### Frontend
+
+```powershell
+Set-Location frontend
+npm install
+npm run dev
+npm run build
+```
+
+When running the frontend alone, it defaults to `http://127.0.0.1:8000` for the API. PyWebView passes the active FastAPI port with `?apiBase=...`.
+
+### Desktop Shell
+
+Dev mode loads the Vite server and starts FastAPI on a local port:
+
+```powershell
+Set-Location backend
+uv run --extra desktop python -m app.desktop.launcher --dev-server http://127.0.0.1:5173
+```
+
+Production packaging expects `frontend/dist` to exist:
+
+```powershell
+Set-Location frontend
+npm run build
+
+Set-Location ..\backend
+uv run --extra desktop --extra build pyinstaller ..\build\wingman.spec --noconfirm
+```
+
+Run the full packaged-app verification before calling the desktop build good. This builds the frontend, packages the exe, starts it on a fixed local port, and checks `/healthz` plus onboarding status from outside the process:
+
+```powershell
+.\scripts\verify_desktop_package.ps1
+```
+
+Core validation before pushing a phase branch:
+
+```powershell
+Set-Location backend
+uv run pytest -v
+
+Set-Location ..\frontend
+npm run build
+
+Set-Location ..
+.\scripts\verify_desktop_package.ps1
+```
