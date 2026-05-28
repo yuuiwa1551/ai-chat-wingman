@@ -86,3 +86,9 @@ npm run build
 Set-Location ..\backend
 uv run --extra desktop --extra build pyinstaller ..\build\wingman.spec --noconfirm
 ```
+
+Run the full packaged-app verification before calling the desktop build good. This builds the frontend, packages the exe, starts it on a fixed local port, and checks `/healthz` plus onboarding status from outside the process:
+
+```powershell
+.\scripts\verify_desktop_package.ps1
+```
