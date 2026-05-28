@@ -266,6 +266,51 @@ def test_chat_targets_crud_organize_and_reply_uses_target_profile() -> None:
             assert llm_call.task == "target_profile_organize"
 
 
+def test_multimodal_screenshot_parse_can_feed_reply_generation() -> None:
+    from app.db.database import SessionLocal
+    from app.db.models import LLMCall
+    from app.main import create_app
+
+    one_pixel_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+
+    with TestClient(create_app()) as client:
+        parse_response = client.post(
+            "/multimodal/parse-chat-screenshot",
+            json={
+                "filename": "chat.png",
+                "mime_type": "image/png",
+                "image_base64": one_pixel_png,
+            },
+        )
+        assert parse_response.status_code == 200
+        parsed = parse_response.json()
+        assert parsed["prompt_version"] == "parse_chat_screenshot_v1"
+        assert parsed["messages"][0]["speaker"] == "target"
+        assert parsed["stored_image_path"].startswith("screenshots/")
+
+        chat_text = "\n".join(f"{message['speaker']}: {message['content']}" for message in parsed["messages"])
+        reply_response = client.post(
+            "/reply/generate",
+            json={
+                "chat_text": chat_text,
+                "reply_goal": "安慰并保留空间",
+                "tone": "自然",
+                "length": "短",
+                "proactivity": 0.3,
+                "risk_level": "稳妥",
+                "candidate_count": 1,
+            },
+        )
+        assert reply_response.status_code == 200
+        assert _sse_payload(reply_response.text, "done")["conversation_id"] >= 1
+
+        with SessionLocal() as db:
+            llm_call = db.get(LLMCall, parsed["llm_call_id"])
+            assert llm_call is not None
+            assert llm_call.task == "screenshot_parse"
+            assert llm_call.prompt_version == "parse_chat_screenshot_v1"
+
+
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
     for block in response_text.split("\n\n"):
         if f"event: {event_name}" not in block:

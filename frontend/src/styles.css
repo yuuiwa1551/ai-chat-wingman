@@ -250,6 +250,62 @@ button:disabled {
   margin-top: 12px;
 }
 
+.image-input-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #cfdbd2;
+  border-radius: 8px;
+  background: #f7faf7;
+}
+
+.compact-heading {
+  margin-bottom: 10px;
+}
+
+.image-upload-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.parsed-chat-box {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.parsed-chat-box textarea {
+  min-height: 68px;
+}
+
+.parsed-message-list {
+  display: grid;
+  gap: 8px;
+}
+
+.parsed-message {
+  display: grid;
+  grid-template-columns: 92px 132px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.parsed-message textarea {
+  min-height: 56px;
+}
+
+.uncertain-text {
+  margin: 0;
+  color: #7a5d29;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.compact-actions {
+  margin-top: 0;
+}
+
 input[type="range"] {
   padding: 0;
   accent-color: #2f5d46;
@@ -435,6 +491,11 @@ input[type="range"] {
   }
 
   .preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .image-upload-row,
+  .parsed-message {
     grid-template-columns: 1fr;
   }
 }

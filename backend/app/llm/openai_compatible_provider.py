@@ -65,3 +65,27 @@ class OpenAICompatibleProvider(LLMProvider):
                     delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
                     if delta:
                         yield LLMChunk(delta=delta)
+
+    async def complete_multimodal(self, messages_with_images: list[dict[str, object]], **opts: object) -> LLMResponse:
+        payload = {
+            "model": self.model,
+            "messages": messages_with_images,
+            "stream": False,
+            **opts,
+        }
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=payload,
+            )
+            response.raise_for_status()
+        body = response.json()
+        usage = body.get("usage") or {}
+        text = body["choices"][0]["message"]["content"]
+        return LLMResponse(
+            text=text,
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+            total_tokens=usage.get("total_tokens"),
+        )

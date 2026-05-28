@@ -113,6 +113,23 @@ export interface ChatTargetPayload {
   strategy_guideline?: string | null;
 }
 
+export type ParsedSpeaker = 'me' | 'target' | 'unknown';
+
+export interface ParsedChatMessage {
+  speaker: ParsedSpeaker;
+  content: string;
+  time: string;
+}
+
+export interface ChatScreenshotParseResult {
+  messages: ParsedChatMessage[];
+  summary: string;
+  uncertain_parts: string[];
+  stored_image_path: string;
+  llm_call_id: number;
+  prompt_version: string;
+}
+
 interface SseHandlers {
   onEvent: (eventName: string, data: unknown) => void;
 }
@@ -346,6 +363,18 @@ export async function organizeTarget(targetId: number, notes: string): Promise<{
   });
 }
 
+export async function parseChatScreenshot(file: File): Promise<ChatScreenshotParseResult> {
+  const imageData = await fileToDataUrl(file);
+  return requestJson('/multimodal/parse-chat-screenshot', {
+    method: 'POST',
+    body: JSON.stringify({
+      filename: file.name,
+      mime_type: file.type || 'image/png',
+      image_base64: imageData,
+    }),
+  });
+}
+
 async function readSseResponse(response: Response, handlers: SseHandlers): Promise<void> {
   if (!response.body) {
     throw new Error('SSE response has no body');
@@ -379,6 +408,15 @@ function handleSseEvent(eventText: string, handlers: SseHandlers): void {
     return;
   }
   handlers.onEvent(eventName, JSON.parse(dataLine));
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
+    reader.readAsDataURL(file);
+  });
 }
 
 export { apiBaseUrl };

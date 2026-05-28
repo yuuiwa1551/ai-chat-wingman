@@ -74,7 +74,7 @@ export function App() {
     <main className="window-shell">
       <header className="titlebar">
         <div>
-          <p className="eyebrow">Phase 3 Target Profiles</p>
+          <p className="eyebrow">Phase 5 Screenshot Input</p>
           <h1>AI Chat Wingman</h1>
         </div>
         <span className="status-pill">{providers.length || 0} Providers</span>

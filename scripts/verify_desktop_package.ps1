@@ -107,8 +107,18 @@ try {
         $targetBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $targetPayload "http://127.0.0.1:$Port/targets" | Select-Object -ExpandProperty Content | ConvertFrom-Json
         $targetId = $targetBody.target.id
 
+        $screenshotPayload = @{
+            filename = "chat.png"
+            mime_type = "image/png"
+            image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+        } | ConvertTo-Json
+        $parseBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 20 -Method Post -ContentType "application/json" -Body $screenshotPayload "http://127.0.0.1:$Port/multimodal/parse-chat-screenshot" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not $parseBody.messages -or -not $parseBody.messages[0].content) {
+            throw "Screenshot parse did not return messages."
+        }
+
         $replyPayload = @{
-            chat_text = "Target: I am exhausted today and do not really want to talk."
+            chat_text = "Target: $($parseBody.messages[0].content)"
             target_id = $targetId
             reply_goal = "comfort and leave room to continue later"
             tone = "natural and gentle"

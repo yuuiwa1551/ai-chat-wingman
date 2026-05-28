@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChatTarget, generateReply, ReplyCandidate, selectReply } from '../api';
+import { ImageInputPanel } from './ImageInputPanel';
 
 const replyGoals = ['安慰并保留继续聊天空间', '自然接话', '推进邀约', '解释清楚', '结束话题但不生硬'];
 const toneOptions = ['自然', '温柔', '轻松幽默', '冷静克制', '直接坦率'];
@@ -121,6 +122,13 @@ export function ReplyGenerator({ targets }: ReplyGeneratorProps) {
         当前聊天内容
         <textarea value={chatText} onChange={(event) => setChatText(event.target.value)} />
       </label>
+
+      <ImageInputPanel
+        onApplyText={(nextChatText) => {
+          setChatText(nextChatText);
+          setStatus('已将截图解析内容写入聊天输入');
+        }}
+      />
 
       <div className="form-grid reply-controls">
         <label>
