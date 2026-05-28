@@ -22,6 +22,7 @@ router = APIRouter(prefix="/reply", tags=["reply"])
 
 class GenerateReplyRequest(BaseModel):
     chat_text: str = Field(min_length=1, max_length=12000)
+    target_id: int | None = None
     target_name: str | None = Field(default=None, max_length=80)
     target_strategy: str | None = Field(default=None, max_length=1000)
     reply_goal: str = Field(default="继续自然聊天", max_length=80)
@@ -42,7 +43,7 @@ class SelectReplyRequest(BaseModel):
 async def generate_reply(payload: GenerateReplyRequest, db: Session = Depends(get_db)):
     request = ReplyGenerationRequest(**payload.model_dump())
     try:
-        conversation, provider, profile = start_reply_generation(db, request)
+        conversation, provider, profile, target = start_reply_generation(db, request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -56,7 +57,7 @@ async def generate_reply(payload: GenerateReplyRequest, db: Session = Depends(ge
             },
         )
         try:
-            async for candidate in stream_reply_candidates(provider, request, profile):
+            async for candidate in stream_reply_candidates(provider, request, profile, target):
                 previous = replies_by_index.get(candidate.index, "")
                 delta = candidate.text.removeprefix(previous)
                 replies_by_index[candidate.index] = candidate.text

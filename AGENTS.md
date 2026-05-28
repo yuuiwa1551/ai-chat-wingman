@@ -21,8 +21,9 @@
 
 ## Branching
 
-- 长任务使用功能分支：`phase-0-foundation`、`phase-1-onboarding`、`feature/<short-name>`。
-- 小文档或治理类更新可直接在 `main` 做，但提交前必须确认没有无关改动。
+- 默认直接在 `main` 工作、提交并推送到 `origin/main`。
+- 不要为常规 phase、feature 或修复任务新建分支或 PR，除非用户明确要求。
+- 提交前必须确认工作区没有无关改动；如果发现用户未提交改动，先说明风险再继续。
 - 每次推送到远端前，提交信息使用以下固定格式：
 
 ```text

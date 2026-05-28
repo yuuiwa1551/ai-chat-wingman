@@ -136,6 +136,7 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     target_name: Mapped[str | None] = mapped_column(String, nullable=True)
     target_strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -145,6 +146,7 @@ class ChatSession(Base):
     def to_dict(self) -> dict[str, object]:
         return {
             "id": self.id,
+            "target_id": self.target_id,
             "title": self.title,
             "target_name": self.target_name,
             "target_strategy": self.target_strategy,
@@ -158,6 +160,7 @@ class Conversation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     chat_session_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     profile_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     profile_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     prompt_version: Mapped[str] = mapped_column(String, nullable=False)
@@ -179,6 +182,7 @@ class Conversation(Base):
         return {
             "id": self.id,
             "chat_session_id": self.chat_session_id,
+            "target_id": self.target_id,
             "profile_id": self.profile_id,
             "profile_version": self.profile_version,
             "prompt_version": self.prompt_version,
@@ -193,6 +197,33 @@ class Conversation(Base):
             "risk_level": self.risk_level,
             "generated_replies": self.generated_replies,
             "selected_reply": self.selected_reply,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+class ChatTarget(Base):
+    __tablename__ = "chat_targets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    relationship: Mapped[str | None] = mapped_column(String, nullable=True)
+    style_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    preferences: Mapped[str | None] = mapped_column(Text, nullable=True)
+    taboos: Mapped[str | None] = mapped_column(Text, nullable=True)
+    strategy_guideline: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "relationship": self.relationship,
+            "style_summary": self.style_summary,
+            "preferences": self.preferences,
+            "taboos": self.taboos,
+            "strategy_guideline": self.strategy_guideline,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }

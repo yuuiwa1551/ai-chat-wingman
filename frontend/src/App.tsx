@@ -3,7 +3,9 @@ import {
   apiBaseUrl,
   getOnboardingStatus,
   getStylePresets,
+  ChatTarget,
   LlmProviderConfig,
+  listTargets,
   listProviders,
   OnboardingStatus,
   readDemoSse,
@@ -14,6 +16,7 @@ import {
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { ReplyGenerator } from './components/ReplyGenerator';
 import { StyleTestPanel } from './components/StyleTestPanel';
+import { TargetManager } from './components/TargetManager';
 
 const defaultProvider: LlmProviderConfig = {
   id: 'local-mock',
@@ -29,15 +32,17 @@ export function App() {
   const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
   const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus | null>(null);
   const [stylePresets, setStylePresets] = useState<StylePreset[]>([]);
+  const [targets, setTargets] = useState<ChatTarget[]>([]);
   const [status, setStatus] = useState('等待连接');
   const [streamText, setStreamText] = useState('');
 
   useEffect(() => {
-    Promise.all([listProviders(), getOnboardingStatus(), getStylePresets()])
-      .then(([items, nextOnboardingStatus, presets]) => {
+    Promise.all([listProviders(), getOnboardingStatus(), getStylePresets(), listTargets()])
+      .then(([items, nextOnboardingStatus, presets, nextTargets]) => {
         setProviders(items);
         setOnboardingStatus(nextOnboardingStatus);
         setStylePresets(presets);
+        setTargets(nextTargets);
         if (items[0]) {
           setProvider({ ...defaultProvider, ...items[0], api_key: '' });
         }
@@ -69,7 +74,7 @@ export function App() {
     <main className="window-shell">
       <header className="titlebar">
         <div>
-          <p className="eyebrow">Phase 2 Style Calibration</p>
+          <p className="eyebrow">Phase 3 Target Profiles</p>
           <h1>AI Chat Wingman</h1>
         </div>
         <span className="status-pill">{providers.length || 0} Providers</span>
@@ -85,9 +90,11 @@ export function App() {
         />
       ) : null}
 
-      {onboardingStatus?.has_default_profile ? <ReplyGenerator /> : null}
+      {onboardingStatus?.has_default_profile ? <TargetManager targets={targets} onTargetsChange={setTargets} /> : null}
 
-  {onboardingStatus?.has_default_profile ? <StyleTestPanel /> : null}
+      {onboardingStatus?.has_default_profile ? <ReplyGenerator targets={targets} /> : null}
+
+      {onboardingStatus?.has_default_profile ? <StyleTestPanel /> : null}
 
       <section className="panel">
         <div className="section-heading">

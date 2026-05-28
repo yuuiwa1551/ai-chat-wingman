@@ -61,10 +61,15 @@ Useful endpoints:
 - `POST /style-test/sessions`
 - `POST /style-test/sessions/{session_id}/message`
 - `POST /style-test/sessions/{session_id}/analysis`
+- `GET/POST /targets`
+- `GET/PUT/DELETE /targets/{target_id}`
+- `POST /targets/{target_id}/organize`
 
 Phase 4 reply generation is a streaming POST endpoint. It creates a `chat_sessions` row when needed, saves the generation in `conversations`, writes the aggregated LLM metadata to `llm_calls`, and accepts the final user choice with `/reply/{conversation_id}/select`.
 
 Phase 2 style testing creates a simulated chat session, streams the simulated target reply over SSE, analyzes user replies, and saves the merged default profile with a `user_profile_versions` snapshot.
+
+Phase 3 target profiles store relationship, preferences, taboos, and reply strategy. `POST /reply/generate` can take `target_id` so generation reads the saved target profile instead of only ad hoc target text.
 
 ### Frontend
 

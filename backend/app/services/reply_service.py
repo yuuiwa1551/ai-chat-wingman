@@ -6,11 +6,12 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.db.models import ChatSession, Conversation, LLMCall, UserProfile
+from app.db.models import ChatSession, ChatTarget, Conversation, LLMCall, UserProfile
 from app.llm.base import LLMMessage, LLMProvider
 from app.llm.router import provider_for_task
 from app.prompts._registry import prompt_version
 from app.services.onboarding_service import default_profile
+from app.services.target_service import get_target, target_prompt_profile
 from app.settings_store import utc_now
 
 REPLY_PROMPT_VERSION = prompt_version("generate_reply")
@@ -19,6 +20,7 @@ REPLY_PROMPT_VERSION = prompt_version("generate_reply")
 @dataclass(frozen=True)
 class ReplyGenerationRequest:
     chat_text: str
+    target_id: int | None
     target_name: str | None
     target_strategy: str | None
     reply_goal: str
@@ -36,20 +38,24 @@ class ReplyCandidate:
     text: str
 
 
-def start_reply_generation(db: Session, request: ReplyGenerationRequest) -> tuple[Conversation, LLMProvider, UserProfile | None]:
+def start_reply_generation(db: Session, request: ReplyGenerationRequest) -> tuple[Conversation, LLMProvider, UserProfile | None, ChatTarget | None]:
     if not request.chat_text.strip():
         raise ValueError("chat_text is required")
 
     profile = default_profile(db)
+    target = get_target(db, request.target_id) if request.target_id else None
     provider = provider_for_task(db, "reply_generation")
     now = utc_now()
+    target_name = target.name if target else _clean_optional(request.target_name)
+    target_strategy = target_prompt_profile(target) if target else _clean_optional(request.target_strategy)
 
     session = db.get(ChatSession, request.session_id) if request.session_id else None
     if session is None:
         session = ChatSession(
+            target_id=target.id if target else None,
             title=_session_title(request.chat_text),
-            target_name=_clean_optional(request.target_name),
-            target_strategy=_clean_optional(request.target_strategy),
+            target_name=target_name,
+            target_strategy=target_strategy,
             created_at=now,
             updated_at=now,
         )
@@ -59,12 +65,13 @@ def start_reply_generation(db: Session, request: ReplyGenerationRequest) -> tupl
 
     conversation = Conversation(
         chat_session_id=session.id,
+        target_id=target.id if target else None,
         profile_id=profile.id if profile else None,
         profile_version=profile.current_version if profile else None,
         prompt_version=REPLY_PROMPT_VERSION,
         input_text=request.chat_text.strip(),
-        target_name=_clean_optional(request.target_name),
-        target_strategy=_clean_optional(request.target_strategy),
+        target_name=target_name,
+        target_strategy=target_strategy,
         reply_goal=request.reply_goal,
         tone=request.tone,
         length=request.length,
@@ -77,17 +84,18 @@ def start_reply_generation(db: Session, request: ReplyGenerationRequest) -> tupl
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
-    return conversation, provider, profile
+    return conversation, provider, profile, target
 
 
 async def stream_reply_candidates(
     provider: LLMProvider,
     request: ReplyGenerationRequest,
     profile: UserProfile | None,
+    target: ChatTarget | None,
 ) -> AsyncIterator[ReplyCandidate]:
     count = max(1, min(request.candidate_count, 5))
     for index in range(count):
-        messages = build_reply_messages(request, profile, index)
+        messages = build_reply_messages(request, profile, target, index)
         parts: list[str] = []
         async for chunk in provider.stream(messages, temperature=_temperature_for(index)):
             parts.append(chunk.delta)
@@ -176,11 +184,11 @@ def select_reply(db: Session, conversation_id: int, selected_reply: str | None, 
     return conversation
 
 
-def build_reply_messages(request: ReplyGenerationRequest, profile: UserProfile | None, candidate_index: int) -> list[LLMMessage]:
+def build_reply_messages(request: ReplyGenerationRequest, profile: UserProfile | None, target: ChatTarget | None, candidate_index: int) -> list[LLMMessage]:
     profile_summary = profile.style_summary if profile else "用户尚未完成人设建模，先保持自然、清楚、不过度表演。"
     profile_guideline = profile.generation_guideline if profile else "表达要像真实聊天消息，避免 AI 腔。"
-    target_name = request.target_name or "当前聊天对象"
-    target_strategy = request.target_strategy or "先接住上下文和情绪，再给出自然可复制的回复。"
+    target_name = target.name if target else request.target_name or "当前聊天对象"
+    target_strategy = target_prompt_profile(target) or request.target_strategy or "先接住上下文和情绪，再给出自然可复制的回复。"
     variant = ["稳妥自然", "更有情绪承接", "更主动推进", "更简短克制", "更轻松一点"][candidate_index]
     system = f"""
 你是 AI 帮聊助手，只生成候选回复，不自动发送。
@@ -223,6 +231,7 @@ def _request_summary(request: ReplyGenerationRequest) -> str:
     return json.dumps(
         {
             "chat_text_preview": request.chat_text[:120],
+            "target_id": request.target_id,
             "target_name": request.target_name,
             "reply_goal": request.reply_goal,
             "tone": request.tone,

@@ -5,6 +5,7 @@ PROMPT_VERSIONS: dict[str, str] = {
     "simulate_style_test": "simulate_style_test_v1",
     "analyze_style_test": "analyze_style_test_v1",
     "merge_profile": "merge_profile_v1",
+    "organize_chat_target": "organize_chat_target_v1",
 }
 
 

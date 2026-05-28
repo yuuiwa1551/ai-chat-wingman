@@ -33,6 +33,7 @@ export interface UserProfile {
 
 export interface ReplyGeneratePayload {
   chat_text: string;
+  target_id?: number | null;
   target_name?: string | null;
   target_strategy?: string | null;
   reply_goal: string;
@@ -58,6 +59,7 @@ export interface ReplyGenerateDone {
 export interface ConversationRecord {
   id: number;
   chat_session_id: number;
+  target_id: number | null;
   prompt_version: string;
   llm_call_id: number | null;
   generated_replies: string | null;
@@ -88,6 +90,27 @@ export interface StyleTestAnalysis {
   common_patterns: string[];
   avoid_patterns: string[];
   generation_guideline: string;
+}
+
+export interface ChatTarget {
+  id: number;
+  name: string;
+  relationship: string | null;
+  style_summary: string | null;
+  preferences: string | null;
+  taboos: string | null;
+  strategy_guideline: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatTargetPayload {
+  name: string;
+  relationship?: string | null;
+  style_summary?: string | null;
+  preferences?: string | null;
+  taboos?: string | null;
+  strategy_guideline?: string | null;
 }
 
 interface SseHandlers {
@@ -289,6 +312,38 @@ export async function analyzeStyleTestSession(sessionId: number): Promise<{
   llm_call_id: number;
 }> {
   return requestJson(`/style-test/sessions/${sessionId}/analysis`, { method: 'POST' });
+}
+
+export async function listTargets(): Promise<ChatTarget[]> {
+  const body = await requestJson<{ targets: ChatTarget[] }>('/targets');
+  return body.targets;
+}
+
+export async function createTarget(payload: ChatTargetPayload): Promise<ChatTarget> {
+  const body = await requestJson<{ target: ChatTarget }>('/targets', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return body.target;
+}
+
+export async function updateTarget(targetId: number, payload: Partial<ChatTargetPayload>): Promise<ChatTarget> {
+  const body = await requestJson<{ target: ChatTarget }>(`/targets/${targetId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  return body.target;
+}
+
+export async function deleteTarget(targetId: number): Promise<void> {
+  await requestJson<{ ok: boolean }>(`/targets/${targetId}`, { method: 'DELETE' });
+}
+
+export async function organizeTarget(targetId: number, notes: string): Promise<{ target: ChatTarget; llm_call_id: number }> {
+  return requestJson(`/targets/${targetId}/organize`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
 }
 
 async function readSseResponse(response: Response, handlers: SseHandlers): Promise<void> {

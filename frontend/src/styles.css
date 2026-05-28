@@ -386,6 +386,35 @@ input[type="range"] {
   line-height: 1.45;
 }
 
+.target-panel {
+  border-color: #c6d0c9;
+  background: rgba(252, 255, 253, 0.92);
+}
+
+.target-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.target-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.target-form {
+  margin-top: 2px;
+}
+
+.target-form textarea,
+.organize-notes textarea {
+  min-height: 76px;
+}
+
+.organize-notes {
+  margin-top: 12px;
+}
+
 .status-line {
   margin-top: auto;
   padding: 10px 2px;

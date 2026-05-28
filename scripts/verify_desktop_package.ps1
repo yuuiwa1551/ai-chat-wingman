@@ -97,10 +97,19 @@ try {
             Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $profilePayload "http://127.0.0.1:$Port/onboarding/default-profile" | Out-Null
         }
 
+        $targetPayload = @{
+            name = "Xia"
+            relationship = "friend"
+            preferences = "Prefers low-pressure messages."
+            taboos = "Do not send repeated questions."
+            strategy_guideline = "Acknowledge emotion and leave space."
+        } | ConvertTo-Json
+        $targetBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $targetPayload "http://127.0.0.1:$Port/targets" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        $targetId = $targetBody.target.id
+
         $replyPayload = @{
             chat_text = "Target: I am exhausted today and do not really want to talk."
-            target_name = "Xia"
-            target_strategy = "Acknowledge the emotion first and do not ask too many questions."
+            target_id = $targetId
             reply_goal = "comfort and leave room to continue later"
             tone = "natural and gentle"
             length = "short"

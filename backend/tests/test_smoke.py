@@ -204,6 +204,68 @@ def test_style_test_session_message_and_analysis_updates_profile() -> None:
             assert any(version.merge_reason == "style_test_merge" for version in versions)
 
 
+def test_chat_targets_crud_organize_and_reply_uses_target_profile() -> None:
+    from app.db.database import SessionLocal
+    from app.db.models import ChatTarget, Conversation, LLMCall
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        create_response = client.post(
+            "/targets",
+            json={
+                "name": "小夏",
+                "relationship": "朋友",
+                "preferences": "喜欢低压力聊天",
+                "taboos": "不要连续追问",
+                "strategy_guideline": "先接住情绪，给对方空间。",
+            },
+        )
+        assert create_response.status_code == 200
+        target = create_response.json()["target"]
+        target_id = target["id"]
+
+        update_response = client.put(f"/targets/{target_id}", json={"style_summary": "压力大时回复会变慢。"})
+        assert update_response.status_code == 200
+        assert update_response.json()["target"]["style_summary"] == "压力大时回复会变慢。"
+
+        organize_response = client.post(f"/targets/{target_id}/organize", json={"notes": "她不喜欢被催回复。"})
+        assert organize_response.status_code == 200
+        assert organize_response.json()["llm_call_id"] >= 1
+
+        list_response = client.get("/targets")
+        assert list_response.status_code == 200
+        assert any(item["id"] == target_id for item in list_response.json()["targets"])
+
+        reply_response = client.post(
+            "/reply/generate",
+            json={
+                "chat_text": "对方：今天太累了。",
+                "target_id": target_id,
+                "reply_goal": "安慰并保留空间",
+                "tone": "自然",
+                "length": "短",
+                "proactivity": 0.3,
+                "risk_level": "稳妥",
+                "candidate_count": 2,
+            },
+        )
+        assert reply_response.status_code == 200
+        done = _sse_payload(reply_response.text, "done")
+
+        with SessionLocal() as db:
+            saved_target = db.get(ChatTarget, target_id)
+            assert saved_target is not None
+            conversation = db.get(Conversation, done["conversation_id"])
+            assert conversation is not None
+            assert conversation.target_id == target_id
+            assert conversation.target_name == "小夏"
+            assert conversation.target_strategy is not None
+            assert "不要连续追问" in conversation.target_strategy
+            llm_call = db.get(LLMCall, organize_response.json()["llm_call_id"])
+            assert llm_call is not None
+            assert llm_call.task == "target_profile_organize"
+
+
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
     for block in response_text.split("\n\n"):
         if f"event: {event_name}" not in block:

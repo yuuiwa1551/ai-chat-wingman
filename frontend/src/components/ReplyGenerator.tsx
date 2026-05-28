@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateReply, ReplyCandidate, selectReply } from '../api';
+import { ChatTarget, generateReply, ReplyCandidate, selectReply } from '../api';
 
 const replyGoals = ['安慰并保留继续聊天空间', '自然接话', '推进邀约', '解释清楚', '结束话题但不生硬'];
 const toneOptions = ['自然', '温柔', '轻松幽默', '冷静克制', '直接坦率'];
@@ -18,8 +18,13 @@ function upsertCandidate(items: ReplyCandidate[], index: number, text: string, m
   return nextItems.sort((left, right) => left.index - right.index);
 }
 
-export function ReplyGenerator() {
+interface ReplyGeneratorProps {
+  targets: ChatTarget[];
+}
+
+export function ReplyGenerator({ targets }: ReplyGeneratorProps) {
   const [chatText, setChatText] = useState('对方：今天真的累死了，不太想说话。');
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
   const [targetName, setTargetName] = useState('');
   const [targetStrategy, setTargetStrategy] = useState('先接住情绪，不要追问太多。');
   const [replyGoal, setReplyGoal] = useState(replyGoals[0]);
@@ -49,8 +54,9 @@ export function ReplyGenerator() {
       const result = await generateReply(
         {
           chat_text: chatText,
-          target_name: targetName || null,
-          target_strategy: targetStrategy || null,
+          target_id: selectedTargetId,
+          target_name: selectedTargetId ? null : targetName || null,
+          target_strategy: selectedTargetId ? null : targetStrategy || null,
           reply_goal: replyGoal,
           tone,
           length: replyLength,
@@ -118,8 +124,27 @@ export function ReplyGenerator() {
 
       <div className="form-grid reply-controls">
         <label>
+          已保存对象
+          <select
+            value={selectedTargetId ?? ''}
+            onChange={(event) => setSelectedTargetId(event.target.value ? Number(event.target.value) : null)}
+          >
+            <option value="">手动填写</option>
+            {targets.map((target) => (
+              <option key={target.id} value={target.id}>
+                {target.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           聊天对象
-          <input placeholder="可先只填名字" value={targetName} onChange={(event) => setTargetName(event.target.value)} />
+          <input
+            disabled={selectedTargetId !== null}
+            placeholder="可先只填名字"
+            value={targetName}
+            onChange={(event) => setTargetName(event.target.value)}
+          />
         </label>
         <label>
           回复目标
@@ -174,7 +199,7 @@ export function ReplyGenerator() {
         </label>
         <label className="wide">
           对象策略
-          <input value={targetStrategy} onChange={(event) => setTargetStrategy(event.target.value)} />
+          <input disabled={selectedTargetId !== null} value={targetStrategy} onChange={(event) => setTargetStrategy(event.target.value)} />
         </label>
       </div>
 
