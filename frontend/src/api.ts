@@ -7,6 +7,29 @@ export interface LlmProviderConfig {
   enabled: boolean;
 }
 
+export interface StylePreset {
+  id: number;
+  name: string;
+  description: string;
+  example_reply: string;
+  config_json: string;
+  created_at: string;
+}
+
+export interface OnboardingStatus {
+  has_default_profile: boolean;
+  default_profile_id: number | null;
+}
+
+export interface UserProfile {
+  id: number;
+  name: string;
+  source_type: string;
+  style_summary: string;
+  generation_guideline: string;
+  is_default: boolean;
+}
+
 export function getApiBaseUrl(): string {
   const fromQuery = new URLSearchParams(window.location.search).get('apiBase');
   return fromQuery || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -41,6 +64,27 @@ export async function saveProvider(provider: LlmProviderConfig): Promise<LlmProv
 
 export async function testProvider(providerId: string): Promise<{ ok: boolean; text: string; llm_call_id: number }> {
   return requestJson(`/settings/llm/providers/${providerId}/test`, { method: 'POST' });
+}
+
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
+  return requestJson('/onboarding/status');
+}
+
+export async function getStylePresets(): Promise<StylePreset[]> {
+  const body = await requestJson<{ presets: StylePreset[] }>('/onboarding/style-presets');
+  return body.presets;
+}
+
+export async function createDefaultProfile(payload: {
+  name: string;
+  selected_preset_ids: number[];
+  avoid_patterns: string[];
+}): Promise<UserProfile> {
+  const body = await requestJson<{ profile: UserProfile }>('/onboarding/default-profile', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return body.profile;
 }
 
 export async function readDemoSse(onToken: (token: string) => void): Promise<string> {

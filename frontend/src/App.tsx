@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react';
-import { apiBaseUrl, LlmProviderConfig, listProviders, readDemoSse, saveProvider, testProvider } from './api';
+import {
+  apiBaseUrl,
+  getOnboardingStatus,
+  getStylePresets,
+  LlmProviderConfig,
+  listProviders,
+  OnboardingStatus,
+  readDemoSse,
+  saveProvider,
+  StylePreset,
+  testProvider,
+} from './api';
+import { OnboardingWizard } from './components/OnboardingWizard';
 
 const defaultProvider: LlmProviderConfig = {
   id: 'local-mock',
@@ -13,13 +25,17 @@ const defaultProvider: LlmProviderConfig = {
 export function App() {
   const [provider, setProvider] = useState<LlmProviderConfig>(defaultProvider);
   const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
+  const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus | null>(null);
+  const [stylePresets, setStylePresets] = useState<StylePreset[]>([]);
   const [status, setStatus] = useState('等待连接');
   const [streamText, setStreamText] = useState('');
 
   useEffect(() => {
-    listProviders()
-      .then((items) => {
+    Promise.all([listProviders(), getOnboardingStatus(), getStylePresets()])
+      .then(([items, nextOnboardingStatus, presets]) => {
         setProviders(items);
+        setOnboardingStatus(nextOnboardingStatus);
+        setStylePresets(presets);
         if (items[0]) {
           setProvider({ ...defaultProvider, ...items[0], api_key: '' });
         }
@@ -56,6 +72,16 @@ export function App() {
         </div>
         <span className="status-pill">{providers.length || 0} Providers</span>
       </header>
+
+      {onboardingStatus && !onboardingStatus.has_default_profile ? (
+        <OnboardingWizard
+          presets={stylePresets}
+          onComplete={(profile) => {
+            setOnboardingStatus({ has_default_profile: true, default_profile_id: profile.id });
+            setStatus(`已保存默认人设：${profile.name}`);
+          }}
+        />
+      ) : null}
 
       <section className="panel">
         <div className="section-heading">

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import importlib
+import os
 import time
 
 from fastapi.testclient import TestClient
 
 
-def test_paths_create_app_dirs(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("AI_CHAT_WINGMAN_DATA_DIR", str(tmp_path / "data"))
+def test_paths_create_app_dirs() -> None:
     import app.paths as paths
 
     importlib.reload(paths)
+    assert str(paths.APP_DATA_DIR) == os.environ["AI_CHAT_WINGMAN_DATA_DIR"]
     assert paths.database_path().parent.exists()
     assert paths.SCREENSHOTS_DIR.exists()
 
@@ -39,9 +40,7 @@ def test_mock_provider() -> None:
     assert asyncio.run(run()) == "mock reply: hello"
 
 
-def test_provider_settings_test_logs_llm_call(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("AI_CHAT_WINGMAN_DATA_DIR", str(tmp_path / "provider-data"))
-
+def test_provider_settings_test_logs_llm_call() -> None:
     from app.main import create_app
 
     with TestClient(create_app()) as client:
@@ -56,9 +55,7 @@ def test_provider_settings_test_logs_llm_call(tmp_path, monkeypatch) -> None:
         assert body["llm_call_id"] >= 1
 
 
-def test_demo_job_reaches_success(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("AI_CHAT_WINGMAN_DATA_DIR", str(tmp_path / "job-data"))
-
+def test_demo_job_reaches_success() -> None:
     from app.main import create_app
 
     with TestClient(create_app()) as client:
@@ -78,3 +75,33 @@ def test_demo_job_reaches_success(tmp_path, monkeypatch) -> None:
         assert final_body is not None
         assert final_body["status"] == "success"
         assert final_body["progress"] == 1.0
+
+
+def test_onboarding_presets_and_default_profile() -> None:
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        presets_response = client.get("/onboarding/style-presets")
+        assert presets_response.status_code == 200
+        presets = presets_response.json()["presets"]
+        assert len(presets) >= 8
+
+        status_response = client.get("/onboarding/status")
+        assert status_response.json()["has_default_profile"] is False
+
+        save_response = client.post(
+            "/onboarding/default-profile",
+            json={
+                "name": "默认人设",
+                "selected_preset_ids": [presets[0]["id"], presets[1]["id"]],
+                "avoid_patterns": ["不要太油", "不要像 AI"],
+            },
+        )
+        assert save_response.status_code == 200
+        profile = save_response.json()["profile"]
+        assert profile["source_type"] == "preset"
+        assert profile["is_default"] is True
+
+        next_status = client.get("/onboarding/status").json()
+        assert next_status["has_default_profile"] is True
+        assert next_status["default_profile_id"] == profile["id"]

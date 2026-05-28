@@ -62,3 +62,71 @@ class Job(Base):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    source_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    style_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tone_features: Mapped[str | None] = mapped_column(Text, nullable=True)
+    common_patterns: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avoid_patterns: Mapped[str | None] = mapped_column(Text, nullable=True)
+    generation_guideline: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.7, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    current_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "source_type": self.source_type,
+            "style_summary": self.style_summary,
+            "tone_features": self.tone_features,
+            "common_patterns": self.common_patterns,
+            "avoid_patterns": self.avoid_patterns,
+            "generation_guideline": self.generation_guideline,
+            "confidence": self.confidence,
+            "is_default": self.is_default,
+            "current_version": self.current_version,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+class StylePreset(Base):
+    __tablename__ = "style_presets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    example_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "example_reply": self.example_reply,
+            "config_json": self.config_json,
+            "created_at": self.created_at,
+        }
+
+
+class UserProfileVersion(Base):
+    __tablename__ = "user_profile_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
+    merge_reason: Mapped[str] = mapped_column(String, nullable=False)
+    source_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)

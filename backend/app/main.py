@@ -9,12 +9,15 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.api import demo, jobs, settings
+from app.api import onboarding
 from app.db.database import initialize_database
+from app.services.onboarding_service import seed_style_presets
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     initialize_database()
+    seed_style_presets()
     yield
 
 
@@ -27,6 +30,7 @@ def create_app() -> FastAPI:
 
     app.include_router(demo.router)
     app.include_router(jobs.router)
+    app.include_router(onboarding.router)
     app.include_router(settings.router)
 
     frontend_dist = frontend_dist_path()
