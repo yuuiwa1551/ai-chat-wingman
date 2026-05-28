@@ -118,6 +118,31 @@ try {
         Write-Host "Reply generation SSE verified."
     }
 
+    Invoke-Step "Verify style test endpoint" {
+        $sessionPayload = @{
+            target_type = "friend"
+            scenario = "The target is tired and does not want a long conversation."
+            simulated_target_profile = "Slow to warm up and dislikes repeated questions under pressure."
+        } | ConvertTo-Json
+        $sessionBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $sessionPayload "http://127.0.0.1:$Port/style-test/sessions" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        $sessionId = $sessionBody.session.id
+
+        $messagePayload = @{ content = "Take a rest first. No need to reply quickly." } | ConvertTo-Json
+        $message = Invoke-WebRequest -UseBasicParsing -TimeoutSec 20 -Method Post -ContentType "application/json" -Body $messagePayload "http://127.0.0.1:$Port/style-test/sessions/$sessionId/message"
+        if ($message.StatusCode -ne 200) {
+            throw "Unexpected style test message response: $($message.StatusCode)"
+        }
+        if ($message.Content -notmatch "event: done" -or $message.Content -notmatch "event: token") {
+            throw "Style test SSE did not include token and done events."
+        }
+
+        $analysis = Invoke-WebRequest -UseBasicParsing -TimeoutSec 20 -Method Post "http://127.0.0.1:$Port/style-test/sessions/$sessionId/analysis"
+        if ($analysis.StatusCode -ne 200) {
+            throw "Unexpected style test analysis response: $($analysis.StatusCode)"
+        }
+        Write-Host "Style test SSE and analysis verified."
+    }
+
     Write-Host "Desktop package verification passed."
 } finally {
     if ($process -and -not $process.HasExited) {
