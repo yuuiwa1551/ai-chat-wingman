@@ -56,6 +56,10 @@ Useful endpoints:
 - `GET /settings/llm/providers`
 - `PUT /settings/llm/providers/{id}`
 - `POST /settings/llm/providers/{id}/test`
+- `POST /reply/generate`
+- `POST /reply/{conversation_id}/select`
+
+Phase 4 reply generation is a streaming POST endpoint. It creates a `chat_sessions` row when needed, saves the generation in `conversations`, writes the aggregated LLM metadata to `llm_calls`, and accepts the final user choice with `/reply/{conversation_id}/select`.
 
 ### Frontend
 
@@ -90,5 +94,18 @@ uv run --extra desktop --extra build pyinstaller ..\build\wingman.spec --noconfi
 Run the full packaged-app verification before calling the desktop build good. This builds the frontend, packages the exe, starts it on a fixed local port, and checks `/healthz` plus onboarding status from outside the process:
 
 ```powershell
+.\scripts\verify_desktop_package.ps1
+```
+
+Core validation before pushing a phase branch:
+
+```powershell
+Set-Location backend
+uv run pytest -v
+
+Set-Location ..\frontend
+npm run build
+
+Set-Location ..
 .\scripts\verify_desktop_package.ps1
 ```

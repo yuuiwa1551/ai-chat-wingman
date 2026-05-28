@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import time
 
@@ -105,3 +106,62 @@ def test_onboarding_presets_and_default_profile() -> None:
         next_status = client.get("/onboarding/status").json()
         assert next_status["has_default_profile"] is True
         assert next_status["default_profile_id"] == profile["id"]
+
+
+def test_reply_generation_stream_saves_conversation_and_selection() -> None:
+    from app.db.database import SessionLocal
+    from app.db.models import Conversation, LLMCall
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        presets = client.get("/onboarding/style-presets").json()["presets"]
+        if not client.get("/onboarding/status").json()["has_default_profile"]:
+            client.post(
+                "/onboarding/default-profile",
+                json={"name": "默认人设", "selected_preset_ids": [presets[0]["id"]], "avoid_patterns": ["不要像 AI"]},
+            )
+
+        response = client.post(
+            "/reply/generate",
+            json={
+                "chat_text": "对方：今天真的累死了，不太想说话。",
+                "target_name": "小夏",
+                "target_strategy": "先接住情绪，不要追问太多。",
+                "reply_goal": "安慰并保留继续聊天空间",
+                "tone": "自然温柔",
+                "length": "短",
+                "proactivity": 0.35,
+                "risk_level": "稳妥",
+                "candidate_count": 3,
+            },
+        )
+        assert response.status_code == 200
+        assert "event: token" in response.text
+        done = _sse_payload(response.text, "done")
+        assert done["conversation_id"] >= 1
+        assert done["llm_call_id"] >= 1
+        assert len(done["replies"]) == 3
+
+        with SessionLocal() as db:
+            conversation = db.get(Conversation, done["conversation_id"])
+            assert conversation is not None
+            assert conversation.prompt_version == "generate_reply_v1"
+            assert conversation.llm_call_id == done["llm_call_id"]
+            assert json.loads(conversation.generated_replies or "[]") == done["replies"]
+            llm_call = db.get(LLMCall, done["llm_call_id"])
+            assert llm_call is not None
+            assert llm_call.task == "reply_generation"
+
+        select_response = client.post(f"/reply/{done['conversation_id']}/select", json={"selected_index": 0})
+        assert select_response.status_code == 200
+        selected = select_response.json()["conversation"]["selected_reply"]
+        assert selected == done["replies"][0]
+
+
+def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
+    for block in response_text.split("\n\n"):
+        if f"event: {event_name}" not in block:
+            continue
+        data_line = next(line for line in block.splitlines() if line.startswith("data: "))
+        return json.loads(data_line.removeprefix("data: "))
+    raise AssertionError(f"Missing SSE event: {event_name}")

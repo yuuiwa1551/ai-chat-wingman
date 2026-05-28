@@ -85,6 +85,39 @@ try {
         Write-Host $status.Content
     }
 
+    Invoke-Step "Verify reply generation endpoint" {
+        $statusBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 "http://127.0.0.1:$Port/onboarding/status" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not $statusBody.has_default_profile) {
+            $presetsBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 "http://127.0.0.1:$Port/onboarding/style-presets" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+            $profilePayload = @{
+                name = "Default profile"
+                selected_preset_ids = @($presetsBody.presets[0].id)
+                avoid_patterns = @("Do not sound like AI")
+            } | ConvertTo-Json
+            Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $profilePayload "http://127.0.0.1:$Port/onboarding/default-profile" | Out-Null
+        }
+
+        $replyPayload = @{
+            chat_text = "Target: I am exhausted today and do not really want to talk."
+            target_name = "Xia"
+            target_strategy = "Acknowledge the emotion first and do not ask too many questions."
+            reply_goal = "comfort and leave room to continue later"
+            tone = "natural and gentle"
+            length = "short"
+            proactivity = 0.35
+            risk_level = "safe"
+            candidate_count = 3
+        } | ConvertTo-Json
+        $reply = Invoke-WebRequest -UseBasicParsing -TimeoutSec 20 -Method Post -ContentType "application/json" -Body $replyPayload "http://127.0.0.1:$Port/reply/generate"
+        if ($reply.StatusCode -ne 200) {
+            throw "Unexpected reply generation response: $($reply.StatusCode)"
+        }
+        if ($reply.Content -notmatch "event: done" -or $reply.Content -notmatch "event: candidate") {
+            throw "Reply generation SSE did not include candidate and done events."
+        }
+        Write-Host "Reply generation SSE verified."
+    }
+
     Write-Host "Desktop package verification passed."
 } finally {
     if ($process -and -not $process.HasExited) {

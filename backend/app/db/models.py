@@ -130,3 +130,69 @@ class UserProfileVersion(Base):
     merge_reason: Mapped[str] = mapped_column(String, nullable=False)
     source_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    target_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    target_strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "target_name": self.target_name,
+            "target_strategy": self.target_strategy,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_session_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    profile_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    profile_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    prompt_version: Mapped[str] = mapped_column(String, nullable=False)
+    llm_call_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    input_text: Mapped[str] = mapped_column(Text, nullable=False)
+    target_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    target_strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reply_goal: Mapped[str] = mapped_column(String, nullable=False)
+    tone: Mapped[str] = mapped_column(String, nullable=False)
+    length: Mapped[str] = mapped_column(String, nullable=False)
+    proactivity: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String, nullable=False)
+    generated_replies: Mapped[str | None] = mapped_column(Text, nullable=True)
+    selected_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "chat_session_id": self.chat_session_id,
+            "profile_id": self.profile_id,
+            "profile_version": self.profile_version,
+            "prompt_version": self.prompt_version,
+            "llm_call_id": self.llm_call_id,
+            "input_text": self.input_text,
+            "target_name": self.target_name,
+            "target_strategy": self.target_strategy,
+            "reply_goal": self.reply_goal,
+            "tone": self.tone,
+            "length": self.length,
+            "proactivity": self.proactivity,
+            "risk_level": self.risk_level,
+            "generated_replies": self.generated_replies,
+            "selected_reply": self.selected_reply,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
