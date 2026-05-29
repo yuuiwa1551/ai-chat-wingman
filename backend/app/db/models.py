@@ -269,3 +269,30 @@ class StyleTestMessage(Base):
             "content": self.content,
             "created_at": self.created_at,
         }
+
+
+class Memory(Base):
+    __tablename__ = "memories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    memory_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.7)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    source_conversation_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "target_id": self.target_id,
+            "memory_type": self.memory_type,
+            "content": self.content,
+            "confidence": self.confidence,
+            "status": self.status,
+            "source_conversation_id": self.source_conversation_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }

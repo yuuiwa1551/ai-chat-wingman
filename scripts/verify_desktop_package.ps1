@@ -137,6 +137,49 @@ try {
         Write-Host "Reply generation SSE verified."
     }
 
+    Invoke-Step "Verify memory lifecycle endpoints" {
+        $memTargetPayload = @{
+            name = "MemTarget"
+            relationship = "friend"
+        } | ConvertTo-Json
+        $memTargetBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $memTargetPayload "http://127.0.0.1:$Port/targets" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        $memTargetId = $memTargetBody.target.id
+
+        $memReplyPayload = @{
+            chat_text = "Target: I am under a lot of pressure and do not want to be pushed."
+            target_id = $memTargetId
+            candidate_count = 1
+        } | ConvertTo-Json
+        $memReply = Invoke-WebRequest -UseBasicParsing -TimeoutSec 20 -Method Post -ContentType "application/json" -Body $memReplyPayload "http://127.0.0.1:$Port/reply/generate"
+        if ($memReply.Content -notmatch "event: done") {
+            throw "Memory-triggering reply generation did not complete."
+        }
+
+        $pending = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://127.0.0.1:$Port/targets/$memTargetId/memories?status=pending" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not $pending.memories -or $pending.memories.Count -lt 1) {
+            throw "Auto extraction did not create any pending memory."
+        }
+
+        $createMemPayload = @{
+            content = "Target dislikes being pushed for quick replies."
+            memory_type = "warning"
+            confidence = 0.8
+        } | ConvertTo-Json
+        $createdMem = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $createMemPayload "http://127.0.0.1:$Port/targets/$memTargetId/memories" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        $memId = $createdMem.memory.id
+
+        $approved = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post "http://127.0.0.1:$Port/memories/$memId/approve" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if ($approved.memory.status -ne "approved") {
+            throw "Memory approval did not update status."
+        }
+
+        $approvedList = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://127.0.0.1:$Port/targets/$memTargetId/memories?status=approved" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not ($approvedList.memories | Where-Object { $_.id -eq $memId })) {
+            throw "Approved memory was not listed for the target."
+        }
+        Write-Host "Memory lifecycle verified."
+    }
+
     Invoke-Step "Verify style test endpoint" {
         $sessionPayload = @{
             target_type = "friend"

@@ -478,6 +478,89 @@ input[type="range"] {
   font-size: 13px;
 }
 
+.memory-panel {
+  border-color: #c6d3cb;
+  background: rgba(252, 255, 253, 0.92);
+}
+
+.memory-target-select {
+  max-width: 240px;
+}
+
+.memory-add {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  gap: 8px;
+  margin: 12px 0;
+  align-items: end;
+}
+
+.memory-group {
+  margin-top: 12px;
+}
+
+.memory-group h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #3b5546;
+}
+
+.hint {
+  margin: 0;
+  color: #607568;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.memory-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-item {
+  border: 1px solid #d3ddd6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fbfdfb;
+}
+
+.memory-item.memory-approved {
+  border-color: #2f5d46;
+  background: #edf6ef;
+}
+
+.memory-item.memory-rejected {
+  opacity: 0.7;
+}
+
+.memory-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #607568;
+  font-size: 12px;
+}
+
+.memory-type {
+  font-weight: 700;
+  color: #2f5d46;
+}
+
+.memory-content {
+  margin: 6px 0 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (max-width: 520px) {
   .form-grid {
     grid-template-columns: 1fr;
@@ -496,6 +579,10 @@ input[type="range"] {
 
   .image-upload-row,
   .parsed-message {
+    grid-template-columns: 1fr;
+  }
+
+  .memory-add {
     grid-template-columns: 1fr;
   }
 }

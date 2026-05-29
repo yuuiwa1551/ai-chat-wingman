@@ -113,6 +113,26 @@ export interface ChatTargetPayload {
   strategy_guideline?: string | null;
 }
 
+export type MemoryStatus = 'pending' | 'approved' | 'rejected';
+
+export interface Memory {
+  id: number;
+  target_id: number | null;
+  memory_type: string | null;
+  content: string;
+  confidence: number;
+  status: MemoryStatus;
+  source_conversation_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemoryPayload {
+  content: string;
+  memory_type?: string | null;
+  confidence?: number;
+}
+
 export type ParsedSpeaker = 'me' | 'target' | 'unknown';
 
 export interface ParsedChatMessage {
@@ -361,6 +381,42 @@ export async function organizeTarget(targetId: number, notes: string): Promise<{
     method: 'POST',
     body: JSON.stringify({ notes }),
   });
+}
+
+export async function listMemories(targetId: number, status?: MemoryStatus): Promise<Memory[]> {
+  const query = status ? `?status=${status}` : '';
+  const body = await requestJson<{ memories: Memory[] }>(`/targets/${targetId}/memories${query}`);
+  return body.memories;
+}
+
+export async function createMemory(targetId: number, payload: MemoryPayload): Promise<Memory> {
+  const body = await requestJson<{ memory: Memory }>(`/targets/${targetId}/memories`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return body.memory;
+}
+
+export async function updateMemory(memoryId: number, payload: Partial<MemoryPayload> & { status?: MemoryStatus }): Promise<Memory> {
+  const body = await requestJson<{ memory: Memory }>(`/memories/${memoryId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  return body.memory;
+}
+
+export async function deleteMemory(memoryId: number): Promise<void> {
+  await requestJson<{ ok: boolean }>(`/memories/${memoryId}`, { method: 'DELETE' });
+}
+
+export async function approveMemory(memoryId: number): Promise<Memory> {
+  const body = await requestJson<{ memory: Memory }>(`/memories/${memoryId}/approve`, { method: 'POST' });
+  return body.memory;
+}
+
+export async function rejectMemory(memoryId: number): Promise<Memory> {
+  const body = await requestJson<{ memory: Memory }>(`/memories/${memoryId}/reject`, { method: 'POST' });
+  return body.memory;
 }
 
 export async function parseChatScreenshot(file: File): Promise<ChatScreenshotParseResult> {

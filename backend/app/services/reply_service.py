@@ -10,6 +10,7 @@ from app.db.models import ChatSession, ChatTarget, Conversation, LLMCall, UserPr
 from app.llm.base import LLMMessage, LLMProvider
 from app.llm.router import provider_for_task
 from app.prompts._registry import prompt_version
+from app.services.memory_service import approved_memories, approved_memories_prompt
 from app.services.onboarding_service import default_profile
 from app.services.target_service import get_target, target_prompt_profile
 from app.settings_store import utc_now
@@ -38,13 +39,14 @@ class ReplyCandidate:
     text: str
 
 
-def start_reply_generation(db: Session, request: ReplyGenerationRequest) -> tuple[Conversation, LLMProvider, UserProfile | None, ChatTarget | None]:
+def start_reply_generation(db: Session, request: ReplyGenerationRequest) -> tuple[Conversation, LLMProvider, UserProfile | None, ChatTarget | None, str]:
     if not request.chat_text.strip():
         raise ValueError("chat_text is required")
 
     profile = default_profile(db)
     target = get_target(db, request.target_id) if request.target_id else None
     provider = provider_for_task(db, "reply_generation")
+    memories_prompt = approved_memories_prompt(approved_memories(db, target.id)) if target else ""
     now = utc_now()
     target_name = target.name if target else _clean_optional(request.target_name)
     target_strategy = target_prompt_profile(target) if target else _clean_optional(request.target_strategy)
@@ -84,7 +86,7 @@ def start_reply_generation(db: Session, request: ReplyGenerationRequest) -> tupl
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
-    return conversation, provider, profile, target
+    return conversation, provider, profile, target, memories_prompt
 
 
 async def stream_reply_candidates(
@@ -92,10 +94,11 @@ async def stream_reply_candidates(
     request: ReplyGenerationRequest,
     profile: UserProfile | None,
     target: ChatTarget | None,
+    memories_prompt: str = "",
 ) -> AsyncIterator[ReplyCandidate]:
     count = max(1, min(request.candidate_count, 5))
     for index in range(count):
-        messages = build_reply_messages(request, profile, target, index)
+        messages = build_reply_messages(request, profile, target, index, memories_prompt)
         parts: list[str] = []
         async for chunk in provider.stream(messages, temperature=_temperature_for(index)):
             parts.append(chunk.delta)
@@ -184,12 +187,13 @@ def select_reply(db: Session, conversation_id: int, selected_reply: str | None, 
     return conversation
 
 
-def build_reply_messages(request: ReplyGenerationRequest, profile: UserProfile | None, target: ChatTarget | None, candidate_index: int) -> list[LLMMessage]:
+def build_reply_messages(request: ReplyGenerationRequest, profile: UserProfile | None, target: ChatTarget | None, candidate_index: int, memories_prompt: str = "") -> list[LLMMessage]:
     profile_summary = profile.style_summary if profile else "用户尚未完成人设建模，先保持自然、清楚、不过度表演。"
     profile_guideline = profile.generation_guideline if profile else "表达要像真实聊天消息，避免 AI 腔。"
     target_name = target.name if target else request.target_name or "当前聊天对象"
     target_strategy = target_prompt_profile(target) or request.target_strategy or "先接住上下文和情绪，再给出自然可复制的回复。"
     variant = ["稳妥自然", "更有情绪承接", "更主动推进", "更简短克制", "更轻松一点"][candidate_index]
+    memory_block = f"\n7. 已确认的长期记忆（务必参考，不要复述）：\n{memories_prompt}" if memories_prompt.strip() else ""
     system = f"""
 你是 AI 帮聊助手，只生成候选回复，不自动发送。
 生成规则：
@@ -198,7 +202,7 @@ def build_reply_messages(request: ReplyGenerationRequest, profile: UserProfile |
 3. 人设生成约束：{profile_guideline}
 4. 聊天对象：{target_name}；对象策略：{target_strategy}
 5. 回复目标：{request.reply_goal}；语气：{request.tone}；长度：{request.length}；推进感：{request.proactivity:.2f}；风险：{request.risk_level}
-6. 本候选侧重点：{variant}
+6. 本候选侧重点：{variant}{memory_block}
 """.strip()
     user = f"当前聊天内容：\n{request.chat_text.strip()}"
     return [LLMMessage(role="system", content=system), LLMMessage(role="user", content=user)]

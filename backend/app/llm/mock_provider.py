@@ -14,7 +14,11 @@ class MockProvider(LLMProvider):
 
     async def complete(self, messages: list[LLMMessage], **opts: object) -> LLMResponse:
         user_text = next((message.content for message in reversed(messages) if message.role == "user"), "")
-        text = f"mock reply: {user_text}" if user_text else "mock reply"
+        system_text = next((message.content for message in messages if message.role == "system"), "")
+        if "长期记忆提取器" in system_text:
+            text = self._mock_memory_extraction(user_text)
+        else:
+            text = f"mock reply: {user_text}" if user_text else "mock reply"
         return LLMResponse(text=text, prompt_tokens=len(messages), completion_tokens=len(text.split()), total_tokens=len(messages) + len(text.split()))
 
     async def stream(self, messages: list[LLMMessage], **opts: object) -> AsyncIterator[LLMChunk]:
@@ -22,6 +26,21 @@ class MockProvider(LLMProvider):
         for token in response.text.split(" "):
             yield LLMChunk(delta=f"{token} ")
             await asyncio.sleep(0)
+
+    @staticmethod
+    def _mock_memory_extraction(user_text: str) -> str:
+        if not user_text.strip():
+            return "[]"
+        return json.dumps(
+            [
+                {
+                    "memory_type": "preference",
+                    "content": "Mock extracted: target prefers low-pressure replies when feeling tired.",
+                    "confidence": 0.6,
+                }
+            ],
+            ensure_ascii=False,
+        )
 
     async def complete_multimodal(self, messages_with_images: list[dict[str, object]], **opts: object) -> LLMResponse:
         text = json.dumps(

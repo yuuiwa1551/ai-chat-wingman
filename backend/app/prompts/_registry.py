@@ -7,6 +7,7 @@ PROMPT_VERSIONS: dict[str, str] = {
     "merge_profile": "merge_profile_v1",
     "organize_chat_target": "organize_chat_target_v1",
     "parse_chat_screenshot": "parse_chat_screenshot_v1",
+    "extract_memory": "extract_memory_v1",
 }
 
 

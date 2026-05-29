@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.sse import encode_sse, sse_response
 from app.db.database import get_db
+from app.services.memory_service import extract_memories_from_text
 from app.services.reply_service import (
     ReplyGenerationRequest,
     fail_reply_generation,
@@ -43,7 +44,7 @@ class SelectReplyRequest(BaseModel):
 async def generate_reply(payload: GenerateReplyRequest, db: Session = Depends(get_db)):
     request = ReplyGenerationRequest(**payload.model_dump())
     try:
-        conversation, provider, profile, target = start_reply_generation(db, request)
+        conversation, provider, profile, target, memories_prompt = start_reply_generation(db, request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -57,7 +58,7 @@ async def generate_reply(payload: GenerateReplyRequest, db: Session = Depends(ge
             },
         )
         try:
-            async for candidate in stream_reply_candidates(provider, request, profile, target):
+            async for candidate in stream_reply_candidates(provider, request, profile, target, memories_prompt):
                 previous = replies_by_index.get(candidate.index, "")
                 delta = candidate.text.removeprefix(previous)
                 replies_by_index[candidate.index] = candidate.text
@@ -76,6 +77,16 @@ async def generate_reply(payload: GenerateReplyRequest, db: Session = Depends(ge
                     "replies": replies,
                 },
             )
+            if target is not None:
+                try:
+                    await extract_memories_from_text(
+                        db,
+                        target_id=target.id,
+                        conversation_text=request.chat_text,
+                        source_conversation_id=conversation.id,
+                    )
+                except Exception:  # noqa: BLE001 - memory extraction must not break replies
+                    pass
         except Exception as exc:
             llm_call = fail_reply_generation(db, conversation, provider, request, str(exc))
             yield encode_sse("error", {"message": str(exc), "llm_call_id": llm_call.id})

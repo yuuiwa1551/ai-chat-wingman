@@ -64,6 +64,11 @@ Useful endpoints:
 - `GET/POST /targets`
 - `GET/PUT/DELETE /targets/{target_id}`
 - `POST /targets/{target_id}/organize`
+- `GET/POST /targets/{target_id}/memories`
+- `POST /targets/{target_id}/memories/extract`
+- `PUT/DELETE /memories/{memory_id}`
+- `POST /memories/{memory_id}/approve`
+- `POST /memories/{memory_id}/reject`
 - `POST /multimodal/parse-chat-screenshot`
 
 Phase 4 reply generation is a streaming POST endpoint. It creates a `chat_sessions` row when needed, saves the generation in `conversations`, writes the aggregated LLM metadata to `llm_calls`, and accepts the final user choice with `/reply/{conversation_id}/select`.
@@ -73,6 +78,8 @@ Phase 2 style testing creates a simulated chat session, streams the simulated ta
 Phase 3 target profiles store relationship, preferences, taboos, and reply strategy. `POST /reply/generate` can take `target_id` so generation reads the saved target profile instead of only ad hoc target text.
 
 Phase 5 screenshot parsing accepts a local screenshot payload, stores the image under the app data screenshot directory, calls the `screenshot_parse` multimodal route, and returns editable structured chat text for reply generation.
+
+Phase 7 memory system v1 extracts reusable long-term memories after reply generation through the `memory_extraction` route and stores them as `pending`. Memories never auto-pollute long-term context: only after a user approves them do they feed into later reply generation. Memories are scoped to a chat target and are listable, editable, approvable, rejectable, and deletable.
 
 ### Frontend
 

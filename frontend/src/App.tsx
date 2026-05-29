@@ -14,6 +14,7 @@ import {
   testProvider,
 } from './api';
 import { OnboardingWizard } from './components/OnboardingWizard';
+import { MemoryReviewPanel } from './components/MemoryReviewPanel';
 import { ReplyGenerator } from './components/ReplyGenerator';
 import { StyleTestPanel } from './components/StyleTestPanel';
 import { TargetManager } from './components/TargetManager';
@@ -74,7 +75,7 @@ export function App() {
     <main className="window-shell">
       <header className="titlebar">
         <div>
-          <p className="eyebrow">Phase 5 Screenshot Input</p>
+          <p className="eyebrow">Phase 7 Memory System</p>
           <h1>AI Chat Wingman</h1>
         </div>
         <span className="status-pill">{providers.length || 0} Providers</span>
@@ -91,6 +92,8 @@ export function App() {
       ) : null}
 
       {onboardingStatus?.has_default_profile ? <TargetManager targets={targets} onTargetsChange={setTargets} /> : null}
+
+      {onboardingStatus?.has_default_profile ? <MemoryReviewPanel targets={targets} /> : null}
 
       {onboardingStatus?.has_default_profile ? <ReplyGenerator targets={targets} /> : null}
 

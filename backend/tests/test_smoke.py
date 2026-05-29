@@ -311,6 +311,70 @@ def test_multimodal_screenshot_parse_can_feed_reply_generation() -> None:
             assert llm_call.prompt_version == "parse_chat_screenshot_v1"
 
 
+def test_memory_lifecycle_extract_approve_and_feed_reply() -> None:
+    from app.db.database import SessionLocal
+    from app.db.models import LLMCall, Memory
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        presets = client.get("/onboarding/style-presets").json()["presets"]
+        if not client.get("/onboarding/status").json()["has_default_profile"]:
+            client.post(
+                "/onboarding/default-profile",
+                json={"name": "默认人设", "selected_preset_ids": [presets[0]["id"]], "avoid_patterns": ["不要像 AI"]},
+            )
+
+        target = client.post("/targets", json={"name": "小记", "relationship": "朋友"}).json()["target"]
+        target_id = target["id"]
+
+        reply_response = client.post(
+            "/reply/generate",
+            json={"chat_text": "对方：我最近压力很大，不太想被追问。", "target_id": target_id, "candidate_count": 1},
+        )
+        assert reply_response.status_code == 200
+        assert _sse_payload(reply_response.text, "done")["conversation_id"] >= 1
+
+        pending = client.get(f"/targets/{target_id}/memories", params={"status": "pending"}).json()["memories"]
+        assert len(pending) >= 1
+        auto_memory = pending[0]
+        assert auto_memory["status"] == "pending"
+        assert auto_memory["source_conversation_id"] is not None
+
+        with SessionLocal() as db:
+            extraction_call = db.query(LLMCall).filter(LLMCall.task == "memory_extraction").first()
+            assert extraction_call is not None
+            assert extraction_call.prompt_version == "extract_memory_v1"
+
+        created = client.post(
+            f"/targets/{target_id}/memories",
+            json={"content": "对方不喜欢一上来就被追问近况。", "memory_type": "warning", "confidence": 0.8},
+        ).json()["memory"]
+        assert created["status"] == "pending"
+
+        approved = client.post(f"/memories/{created['id']}/approve").json()["memory"]
+        assert approved["status"] == "approved"
+
+        approved_list = client.get(f"/targets/{target_id}/memories", params={"status": "approved"}).json()["memories"]
+        assert any(memory["id"] == created["id"] for memory in approved_list)
+
+        second_reply = client.post(
+            "/reply/generate",
+            json={"chat_text": "对方：在干嘛呢？", "target_id": target_id, "candidate_count": 1},
+        )
+        assert second_reply.status_code == 200
+        done = _sse_payload(second_reply.text, "done")
+        assert done["conversation_id"] >= 1
+
+        with SessionLocal() as db:
+            memory = db.get(Memory, created["id"])
+            assert memory is not None
+            assert memory.status == "approved"
+            assert memory.target_id == target_id
+
+        rejected = client.post(f"/memories/{auto_memory['id']}/reject").json()["memory"]
+        assert rejected["status"] == "rejected"
+
+
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
     for block in response_text.split("\n\n"):
         if f"event: {event_name}" not in block:
