@@ -704,6 +704,111 @@ input[type="range"] {
   color: var(--color-muted);
 }
 
+.provider-setup-guide {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.provider-step {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dbe5df;
+  border-radius: var(--radius);
+  background: #f8fbf9;
+}
+
+.provider-step.ready {
+  border-color: #bfdccc;
+  background: #f1faf4;
+}
+
+.provider-step.pending {
+  border-color: #ead7ba;
+  background: #fff9ef;
+}
+
+.provider-step span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: #dfe8e2;
+  color: #3d5145;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.provider-step.ready span {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.provider-step strong {
+  display: block;
+  font-size: 12px;
+}
+
+.provider-step p {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.provider-feedback {
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border: 1px solid #d7e1da;
+  border-radius: var(--radius);
+  background: #f8fbf9;
+}
+
+.provider-feedback.info {
+  border-color: #cbd8ee;
+  background: #f4f7fe;
+}
+
+.provider-feedback.success {
+  border-color: #bfdccc;
+  background: #f1faf4;
+}
+
+.provider-feedback.warning {
+  border-color: #ead7ba;
+  background: #fff9ef;
+}
+
+.provider-feedback.error {
+  border-color: #efc4b6;
+  background: #fff5f1;
+}
+
+.provider-feedback strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.provider-feedback p {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.provider-feedback.warning p {
+  color: #745b33;
+}
+
+.provider-feedback.error p {
+  color: #9a3412;
+}
+
 label {
   display: flex;
   flex-direction: column;
@@ -1302,6 +1407,7 @@ label {
   }
 
   .settings-layout,
+  .provider-setup-guide,
   .onboarding-choice-grid,
   .history-columns {
     grid-template-columns: 1fr;
