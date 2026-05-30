@@ -23,6 +23,26 @@ const statusLabels: Record<string, string> = {
   rejected: '已拒绝',
 };
 
+type PendingBucket = 'recommended' | 'uncertain' | 'low';
+
+const bucketLabels: Record<PendingBucket, { title: string; description: string; action: string }> = {
+  recommended: {
+    title: '建议保存',
+    description: '置信度较高，内容看起来能稳定影响后续回复。',
+    action: '批量确认',
+  },
+  uncertain: {
+    title: '不确定',
+    description: '可能有用，但需要判断这是不是长期稳定信息。',
+    action: '确认选中',
+  },
+  low: {
+    title: '不建议保存',
+    description: '置信度较低或更像一次性上下文，建议先忽略。',
+    action: '批量忽略',
+  },
+};
+
 export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
   const [selectedId, setSelectedId] = useState<number | null>(targets[0]?.id ?? null);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -30,6 +50,7 @@ export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
   const [loading, setLoading] = useState(false);
   const [newContent, setNewContent] = useState('');
   const [newType, setNewType] = useState('preference');
+  const [busyGroup, setBusyGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (targets.length && selectedId == null) {
@@ -62,6 +83,11 @@ export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
     setMemories((current) => current.map((memory) => (memory.id === next.id ? next : memory)));
   }
 
+  function replaceMemories(nextItems: Memory[]) {
+    const nextById = new Map(nextItems.map((memory) => [memory.id, memory]));
+    setMemories((current) => current.map((memory) => nextById.get(memory.id) || memory));
+  }
+
   async function refresh() {
     if (selectedId == null) {
       return;
@@ -81,6 +107,40 @@ export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
     setStatus('正在拒绝记忆...');
     replaceMemory(await rejectMemory(memory.id));
     setStatus('已拒绝');
+  }
+
+  async function handleBatchApprove(items: Memory[], groupId: string) {
+    if (!items.length) {
+      return;
+    }
+    setBusyGroup(groupId);
+    setStatus(`正在确认 ${items.length} 条记忆...`);
+    try {
+      const updated = await Promise.all(items.map((memory) => approveMemory(memory.id)));
+      replaceMemories(updated);
+      setStatus(`已确认 ${items.length} 条记忆，将进入后续生成上下文`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '批量确认失败');
+    } finally {
+      setBusyGroup(null);
+    }
+  }
+
+  async function handleBatchIgnore(items: Memory[], groupId: string) {
+    if (!items.length) {
+      return;
+    }
+    setBusyGroup(groupId);
+    setStatus(`正在忽略 ${items.length} 条记忆...`);
+    try {
+      const updated = await Promise.all(items.map((memory) => rejectMemory(memory.id)));
+      replaceMemories(updated);
+      setStatus(`已忽略 ${items.length} 条记忆，不会进入后续生成上下文`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '批量忽略失败');
+    } finally {
+      setBusyGroup(null);
+    }
   }
 
   async function handleEdit(memory: Memory) {
@@ -127,6 +187,7 @@ export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
   const pending = memories.filter((memory) => memory.status === 'pending');
   const approved = memories.filter((memory) => memory.status === 'approved');
   const rejected = memories.filter((memory) => memory.status === 'rejected');
+  const pendingBuckets = bucketPendingMemories(pending);
 
   if (!targets.length) {
     return (
@@ -179,24 +240,38 @@ export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
         </button>
       </div>
 
-      <MemoryGroup
-        title={`待确认（${pending.length}）`}
-        memories={pending}
-        emptyHint="暂无待确认记忆"
-        renderActions={(memory) => (
-          <>
-            <button type="button" onClick={() => void handleApprove(memory)}>
-              确认
-            </button>
-            <button type="button" className="secondary" onClick={() => void handleEdit(memory)}>
-              编辑
-            </button>
-            <button type="button" className="secondary" onClick={() => void handleReject(memory)}>
-              拒绝
-            </button>
-          </>
-        )}
-      />
+      <div className="memory-decision-summary" aria-label="待确认记忆分类">
+        {(Object.keys(bucketLabels) as PendingBucket[]).map((bucket) => (
+          <div key={bucket}>
+            <span>{bucketLabels[bucket].title}</span>
+            <strong>{pendingBuckets[bucket].length}</strong>
+          </div>
+        ))}
+      </div>
+
+      {(Object.keys(bucketLabels) as PendingBucket[]).map((bucket) => (
+        <MemoryDecisionGroup
+          key={bucket}
+          bucket={bucket}
+          memories={pendingBuckets[bucket]}
+          busy={busyGroup === bucket}
+          onBatchApprove={() => void handleBatchApprove(pendingBuckets[bucket], bucket)}
+          onBatchIgnore={() => void handleBatchIgnore(pendingBuckets[bucket], bucket)}
+          renderActions={(memory) => (
+            <>
+              <button type="button" onClick={() => void handleApprove(memory)}>
+                确认
+              </button>
+              <button type="button" className="secondary" onClick={() => void handleEdit(memory)}>
+                编辑
+              </button>
+              <button type="button" className="secondary" onClick={() => void handleReject(memory)}>
+                忽略
+              </button>
+            </>
+          )}
+        />
+      ))}
 
       <MemoryGroup
         title={`已确认（${approved.length}）`}
@@ -240,6 +315,85 @@ export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
   );
 }
 
+function bucketPendingMemories(memories: Memory[]): Record<PendingBucket, Memory[]> {
+  return memories.reduce<Record<PendingBucket, Memory[]>>(
+    (groups, memory) => {
+      groups[classifyPendingMemory(memory)].push(memory);
+      return groups;
+    },
+    { recommended: [], uncertain: [], low: [] },
+  );
+}
+
+function classifyPendingMemory(memory: Memory): PendingBucket {
+  if (memory.confidence >= 0.78) {
+    return 'recommended';
+  }
+  if (memory.confidence < 0.5) {
+    return 'low';
+  }
+  return 'uncertain';
+}
+
+function memoryDecisionReason(memory: Memory): string {
+  if (memory.confidence >= 0.78) {
+    return '置信度较高，适合确认后用于后续回复。';
+  }
+  if (memory.confidence < 0.5) {
+    return '置信度偏低，更适合先忽略，避免污染长期记忆。';
+  }
+  return '需要判断它是否稳定复用，确认前可以先编辑。';
+}
+
+function memorySourceLabel(memory: Memory): string {
+  return memory.source_conversation_id ? `来自 Conversation #${memory.source_conversation_id}` : '手动添加或未绑定来源';
+}
+
+interface MemoryDecisionGroupProps {
+  bucket: PendingBucket;
+  memories: Memory[];
+  busy: boolean;
+  onBatchApprove: () => void;
+  onBatchIgnore: () => void;
+  renderActions: (memory: Memory) => ReactNode;
+}
+
+function MemoryDecisionGroup({ bucket, memories, busy, onBatchApprove, onBatchIgnore, renderActions }: MemoryDecisionGroupProps) {
+  const meta = bucketLabels[bucket];
+  const isLowBucket = bucket === 'low';
+  return (
+    <div className={`memory-decision-group memory-decision-${bucket}`}>
+      <div className="memory-decision-heading">
+        <div>
+          <h3>
+            {meta.title}（{memories.length}）
+          </h3>
+          <p>{meta.description}</p>
+        </div>
+        <div className="memory-batch-actions">
+          <button type="button" disabled={busy || !memories.length} onClick={isLowBucket ? onBatchIgnore : onBatchApprove}>
+            {busy ? '处理中...' : meta.action}
+          </button>
+          {!isLowBucket ? (
+            <button type="button" className="secondary" disabled={busy || !memories.length} onClick={onBatchIgnore}>
+              批量忽略
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {memories.length ? (
+        <ul className="memory-list">
+          {memories.map((memory) => (
+            <MemoryListItem key={memory.id} memory={memory} renderActions={renderActions} />
+          ))}
+        </ul>
+      ) : (
+        <p className="hint">暂无{meta.title}记忆</p>
+      )}
+    </div>
+  );
+}
+
 interface MemoryGroupProps {
   title: string;
   memories: Memory[];
@@ -256,18 +410,33 @@ function MemoryGroup({ title, memories, emptyHint, renderActions }: MemoryGroupP
       ) : (
         <ul className="memory-list">
           {memories.map((memory) => (
-            <li key={memory.id} className={`memory-item memory-${memory.status}`}>
-              <div className="memory-meta">
-                <span className="memory-type">{memory.memory_type || 'fact'}</span>
-                <span className="memory-confidence">置信度 {(memory.confidence * 100).toFixed(0)}%</span>
-                <span className="memory-status">{statusLabels[memory.status] || memory.status}</span>
-              </div>
-              <p className="memory-content">{memory.content}</p>
-              <div className="memory-actions">{renderActions(memory)}</div>
-            </li>
+            <MemoryListItem key={memory.id} memory={memory} renderActions={renderActions} />
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+interface MemoryListItemProps {
+  memory: Memory;
+  renderActions: (memory: Memory) => ReactNode;
+}
+
+function MemoryListItem({ memory, renderActions }: MemoryListItemProps) {
+  return (
+    <li className={`memory-item memory-${memory.status}`}>
+      <div className="memory-meta">
+        <span className="memory-type">{memory.memory_type || 'fact'}</span>
+        <span className="memory-confidence">置信度 {(memory.confidence * 100).toFixed(0)}%</span>
+        <span className="memory-status">{statusLabels[memory.status] || memory.status}</span>
+      </div>
+      <p className="memory-content">{memory.content}</p>
+      <div className="memory-explain">
+        <span>{memoryDecisionReason(memory)}</span>
+        <span>{memorySourceLabel(memory)}</span>
+      </div>
+      <div className="memory-actions">{renderActions(memory)}</div>
+    </li>
   );
 }
