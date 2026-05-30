@@ -211,6 +211,26 @@ export interface SavedReply {
   created_at: string;
 }
 
+export interface DataSummary {
+  data_path: string;
+  db_path: string;
+  screenshots_path: string;
+  imports_path: string;
+  logs_path: string;
+  backups_path: string;
+  total_size_bytes: number;
+  section_sizes: Record<string, number>;
+  table_counts: Record<string, number>;
+}
+
+export interface BackupExportResult {
+  backup_path: string;
+  backup_size_bytes: number;
+  included_file_count: number;
+  data_path: string;
+  created_at: string;
+}
+
 interface SseHandlers {
   onEvent: (eventName: string, data: unknown) => void;
 }
@@ -526,6 +546,14 @@ export async function startQQJsonImport(payload: QQJsonImportPayload): Promise<{
 
 export async function getJob(jobId: number): Promise<JobRecord> {
   return requestJson(`/jobs/${jobId}`);
+}
+
+export async function getDataSummary(): Promise<DataSummary> {
+  return requestJson('/privacy/data-summary');
+}
+
+export async function startDataExport(): Promise<{ job_id: number; status: string }> {
+  return requestJson('/privacy/export', { method: 'POST' });
 }
 
 async function readSseResponse(response: Response, handlers: SseHandlers): Promise<void> {

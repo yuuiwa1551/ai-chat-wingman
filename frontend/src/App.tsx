@@ -16,6 +16,7 @@ import {
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { MemoryReviewPanel } from './components/MemoryReviewPanel';
 import { HistoryPanel } from './components/HistoryPanel';
+import { DataPanel } from './components/DataPanel';
 import { QQImportPanel } from './components/QQImportPanel';
 import { ReplyGenerator } from './components/ReplyGenerator';
 import { StyleTestPanel } from './components/StyleTestPanel';
@@ -77,7 +78,7 @@ export function App() {
     <main className="window-shell">
       <header className="titlebar">
         <div>
-          <p className="eyebrow">Phase 6 QQ Import</p>
+          <p className="eyebrow">Phase 8 Data Backup</p>
           <h1>AI Chat Wingman</h1>
         </div>
         <span className="status-pill">{providers.length || 0} Providers</span>
@@ -122,6 +123,8 @@ export function App() {
       ) : null}
 
       {onboardingStatus?.has_default_profile ? <HistoryPanel targets={targets} /> : null}
+
+      {onboardingStatus?.has_default_profile ? <DataPanel /> : null}
 
       {onboardingStatus?.has_default_profile ? <StyleTestPanel /> : null}
 

@@ -67,3 +67,15 @@ def run_qq_json_import_job(job_id: int, payload: dict[str, Any]) -> None:
     except Exception as exc:
         with SessionLocal() as db:
             update_job(db, job_id, status="failed", progress=1.0, error_message=str(exc))
+
+
+def run_privacy_export_job(job_id: int) -> None:
+    try:
+        from app.services.privacy_service import export_backup
+
+        with SessionLocal() as db:
+            result = export_backup(db, job_id)
+            update_job(db, job_id, status="success", progress=1.0, result=json.dumps(result, ensure_ascii=False))
+    except Exception as exc:
+        with SessionLocal() as db:
+            update_job(db, job_id, status="failed", progress=1.0, error_message=str(exc))

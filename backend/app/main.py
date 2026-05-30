@@ -8,7 +8,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import demo, history, importers, jobs, memories, multimodal, reply, settings, style_test, targets
+from app.api import demo, history, importers, jobs, memories, multimodal, privacy, reply, settings, style_test, targets
 from app.api import onboarding
 from app.db.database import initialize_database
 from app.services.onboarding_service import seed_style_presets
@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
     app.include_router(memories.router)
     app.include_router(multimodal.router)
     app.include_router(onboarding.router)
+    app.include_router(privacy.router)
     app.include_router(reply.router)
     app.include_router(settings.router)
     app.include_router(style_test.router)

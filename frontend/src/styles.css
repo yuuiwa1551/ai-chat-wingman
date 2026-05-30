@@ -546,6 +546,40 @@ input[type="range"] {
   background: rgba(255, 254, 250, 0.9);
 }
 
+.data-panel {
+  border-color: #c8d4cc;
+  background: rgba(253, 255, 252, 0.92);
+}
+
+.data-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.data-summary-grid div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d3ddd6;
+  border-radius: 8px;
+  background: #fbfdfb;
+}
+
+.data-summary-grid span {
+  display: block;
+  margin-bottom: 4px;
+  color: #607568;
+  font-size: 12px;
+}
+
+.data-summary-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #26362e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .import-result {
   margin-top: 12px;
   padding: 12px;
@@ -663,6 +697,7 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 
+  .data-summary-grid,
   .history-search-row,
   .history-columns {
     grid-template-columns: 1fr;

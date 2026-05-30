@@ -216,6 +216,31 @@ try {
         Write-Host "Style test SSE and analysis verified."
     }
 
+    Invoke-Step "Verify privacy data export" {
+        $summary = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://127.0.0.1:$Port/privacy/data-summary" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not $summary.data_path -or $summary.table_counts.style_presets -lt 1) {
+            throw "Privacy data summary did not return expected data."
+        }
+
+        $exportStart = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post "http://127.0.0.1:$Port/privacy/export" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        $exportJobId = $exportStart.job_id
+        $exportDeadline = (Get-Date).AddSeconds(20)
+        $exportJob = $null
+        while ((Get-Date) -lt $exportDeadline) {
+            $exportJob = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://127.0.0.1:$Port/jobs/$exportJobId" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+            if ($exportJob.status -in @("success", "failed")) { break }
+            Start-Sleep -Milliseconds 250
+        }
+        if ($null -eq $exportJob -or $exportJob.status -ne "success") {
+            throw "Privacy export job did not succeed. Status=$($exportJob.status) Error=$($exportJob.error_message)"
+        }
+        $exportResult = $exportJob.result | ConvertFrom-Json
+        if (-not $exportResult.backup_path -or $exportResult.backup_size_bytes -le 0) {
+            throw "Privacy export result did not include a usable backup file."
+        }
+        Write-Host "Privacy data export verified."
+    }
+
     Write-Host "Desktop package verification passed."
 } finally {
     if ($process -and -not $process.HasExited) {

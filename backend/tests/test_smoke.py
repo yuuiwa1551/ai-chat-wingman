@@ -468,6 +468,49 @@ def test_history_search_and_favorite_reply() -> None:
         assert client.get("/history/favorites", params={"query": "安慰"}).json()["saved_replies"] == []
 
 
+def test_privacy_data_summary_and_export_backup_job() -> None:
+    from pathlib import Path
+    from zipfile import ZipFile
+
+    from app.main import create_app
+    from app.paths import APP_DATA_DIR
+
+    with TestClient(create_app()) as client:
+        client.post("/targets", json={"name": "备份对象", "relationship": "朋友"})
+
+        summary_response = client.get("/privacy/data-summary")
+        assert summary_response.status_code == 200
+        summary = summary_response.json()
+        assert summary["data_path"] == str(APP_DATA_DIR)
+        assert summary["table_counts"]["style_presets"] >= 8
+        assert summary["table_counts"]["chat_targets"] >= 1
+        assert summary["total_size_bytes"] >= 0
+
+        export_response = client.post("/privacy/export")
+        assert export_response.status_code == 200
+        job_id = export_response.json()["job_id"]
+
+        final_body = None
+        for _ in range(10):
+            job_response = client.get(f"/jobs/{job_id}")
+            assert job_response.status_code == 200
+            final_body = job_response.json()
+            if final_body["status"] in {"success", "failed"}:
+                break
+            time.sleep(0.05)
+
+        assert final_body is not None
+        assert final_body["status"] == "success", final_body.get("error_message")
+        result = json.loads(final_body["result"])
+        assert result["backup_path"].startswith("backups/")
+        assert result["backup_size_bytes"] > 0
+        archive_path = Path(APP_DATA_DIR) / result["backup_path"]
+        assert archive_path.exists()
+        with ZipFile(archive_path) as archive:
+            names = archive.namelist()
+        assert any(name.startswith("db/") for name in names)
+
+
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
     for block in response_text.split("\n\n"):
         if f"event: {event_name}" not in block:
