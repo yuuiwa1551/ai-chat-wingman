@@ -31,8 +31,16 @@ export function ProviderSettingsPanel({
         <div className="section-heading">
           <h2>Provider 设置</h2>
           <span>
-            {providersCount} providers · {apiBaseUrl}
+            {providersCount} 个真实 Provider · {apiBaseUrl}
           </span>
+        </div>
+        <div className={`provider-mode-callout ${providersCount ? 'ready' : 'mock'}`}>
+          <strong>{providersCount ? '真实 Provider 可用' : '当前是 Mock 演示模式'}</strong>
+          <p>
+            {providersCount
+              ? '生成会优先走已保存的 provider；如果测试失败，请重新检测模型或检查 Base URL。'
+              : 'Mock 只用于跑通界面和流式链路，回复质量不代表真实模型。配置 OpenAI-compatible provider 后再测试真实效果。'}
+          </p>
         </div>
         <div className="form-grid">
           <label>

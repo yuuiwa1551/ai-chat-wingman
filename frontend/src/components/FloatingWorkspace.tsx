@@ -58,7 +58,7 @@ export function FloatingWorkspace({
         </div>
         <div className="workspace-topbar-actions">
           <span className="status-pill">{activeTarget ? activeTarget.name : '未选择对象'}</span>
-          <span className="status-pill">{providerCount ? `${providerCount} Providers` : 'Mock Ready'}</span>
+          <span className="status-pill">{providerCount ? `${providerCount} Providers` : 'Mock 演示模式'}</span>
           <button type="button" className="secondary" onClick={() => setActivePanel('settings')}>
             设置
           </button>

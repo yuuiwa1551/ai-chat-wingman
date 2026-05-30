@@ -183,6 +183,16 @@ export function OnboardingWizard({ presets, targets = [], onTargetImported, onCo
           </button>
         </div>
 
+        <div className="onboarding-demo-strip">
+          <div>
+            <strong>先看一轮效果</strong>
+            <p>使用默认人设进入示例聊天，之后再导入记录或补充 Provider。</p>
+          </div>
+          <button type="button" disabled={saving} onClick={() => void handleSkip()}>
+            {saving ? '准备中...' : '试用示例聊天'}
+          </button>
+        </div>
+
         <div className="onboarding-note">
           <strong>隐私说明</strong>
           <p>导入文件只保存在本机用户数据目录。只有调用 LLM 时，必要上下文才会发给你配置的 provider。</p>
@@ -190,7 +200,7 @@ export function OnboardingWizard({ presets, targets = [], onTargetImported, onCo
 
         <div className="onboarding-actions">
           <button type="button" className="secondary" disabled={saving} onClick={() => void handleSkip()}>
-            Skip
+            跳过校准
           </button>
           <span>跳过校准，直接进入主界面，后续可重新校准。</span>
         </div>

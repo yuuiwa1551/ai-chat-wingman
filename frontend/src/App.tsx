@@ -108,10 +108,12 @@ export function App() {
     }
   }
 
+  const realProviderCount = providers.filter((item) => item.type !== 'mock').length;
+
   const providerSettings = (
     <ProviderSettingsPanel
       provider={provider}
-      providersCount={providers.length}
+      providersCount={realProviderCount}
       providerModels={providerModels}
       streamText={streamText}
       onProviderChange={(nextProvider) => {
@@ -144,7 +146,7 @@ export function App() {
   return (
     <FloatingWorkspace
       targets={targets}
-      providerCount={providers.length}
+      providerCount={realProviderCount}
       status={status}
       providerSettings={providerSettings}
       onTargetsChange={setTargets}

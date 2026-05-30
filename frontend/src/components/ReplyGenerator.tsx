@@ -11,6 +11,77 @@ const candidateLabels = ['自然版', '轻松版', '短句版'];
 
 type BubbleSpeaker = 'me' | 'target' | 'unknown';
 
+interface ReplyScenario {
+  id: string;
+  label: string;
+  goal: string;
+  tone: string;
+  length: string;
+  risk: string;
+  proactivity: number;
+  strategy: string;
+  candidateReasons: [string, string, string];
+}
+
+const replyScenarios: ReplyScenario[] = [
+  {
+    id: 'tired-space',
+    label: '对方累了',
+    goal: '接住情绪',
+    tone: '温柔',
+    length: '短句',
+    risk: '别太主动',
+    proactivity: 0.2,
+    strategy: '先承认对方状态，再给空间，不追问原因。',
+    candidateReasons: ['先给空间，不追问原因。', '共情更明显，适合对方愿意多聊时。', '更短，适合直接收住。'],
+  },
+  {
+    id: 'cold-reply',
+    label: '对方冷淡',
+    goal: '自然接话',
+    tone: '轻松一点',
+    length: '短句',
+    risk: '别太主动',
+    proactivity: 0.3,
+    strategy: '降低压迫感，用一句轻量回应把话题接住。',
+    candidateReasons: ['轻接一句，不拉高压力。', '稍微带一点情绪回应，避免尴尬。', '短句保留退路。'],
+  },
+  {
+    id: 'invite',
+    label: '推进邀约',
+    goal: '推进邀约',
+    tone: '自然',
+    length: '中等',
+    risk: '稍主动',
+    proactivity: 0.65,
+    strategy: '给出具体但可拒绝的选项，避免让对方必须马上答应。',
+    candidateReasons: ['给具体选项，也允许对方拒绝。', '语气更轻，降低邀约压力。', '短句试探，不把话说满。'],
+  },
+  {
+    id: 'repair',
+    label: '缓和误会',
+    goal: '解释清楚',
+    tone: '冷静克制',
+    length: '稍微展开',
+    risk: '边界清楚',
+    proactivity: 0.45,
+    strategy: '先承认影响，再解释立场，最后给对方空间。',
+    candidateReasons: ['先承认影响，再解释自己。', '语气更软，适合对方还在情绪里。', '把边界说短，避免继续争辩。'],
+  },
+  {
+    id: 'exit',
+    label: '体面结束',
+    goal: '结束话题',
+    tone: '自然',
+    length: '短句',
+    risk: '边界清楚',
+    proactivity: 0.15,
+    strategy: '礼貌收住话题，不继续拉扯，也不显得突然消失。',
+    candidateReasons: ['自然收尾，保留礼貌。', '多一点缓和，不显得冷处理。', '一句话结束，减少继续拉扯。'],
+  },
+];
+const initialScenario = replyScenarios[0];
+
 interface ChatBubble {
   speaker: BubbleSpeaker;
   content: string;
@@ -56,6 +127,12 @@ function nextOption(options: string[], current: string): string {
   return options[(index + 1) % options.length] || options[0];
 }
 
+function getCandidateReason(index: number, scenario: ReplyScenario | undefined, replyGoal: string, tone: string, riskLevel: string) {
+  const scenarioLabel = scenario?.label || replyGoal;
+  const fallbackReasons = [`语气保持${tone}。`, `稍微多给一点情绪，但仍然${riskLevel}。`, '压短表达，方便直接复制发送。'];
+  return `${scenarioLabel}：${scenario?.candidateReasons[index] || fallbackReasons[index] || fallbackReasons[0]}`;
+}
+
 interface ReplyGeneratorProps {
   targets: ChatTarget[];
   activeTargetId?: number | null;
@@ -70,12 +147,13 @@ export function ReplyGenerator({ targets, activeTargetId, onActiveTargetChange, 
 
   const [chatText, setChatText] = useState('对方：今天真的累死了，不太想说话。\n我：那我先不吵你，晚点给你发个好笑的。\n对方：不用啦，我可能就是有点烦。');
   const [targetName, setTargetName] = useState('');
-  const [targetStrategy, setTargetStrategy] = useState('先接住情绪，不要追问太多。');
-  const [replyGoal, setReplyGoal] = useState(replyGoals[0]);
-  const [tone, setTone] = useState(toneOptions[2]);
-  const [replyLength, setReplyLength] = useState(lengthOptions[0]);
-  const [riskLevel, setRiskLevel] = useState(riskOptions[0]);
-  const [proactivity, setProactivity] = useState(0.35);
+  const [targetStrategy, setTargetStrategy] = useState(initialScenario.strategy);
+  const [replyGoal, setReplyGoal] = useState(initialScenario.goal);
+  const [tone, setTone] = useState(initialScenario.tone);
+  const [replyLength, setReplyLength] = useState(initialScenario.length);
+  const [riskLevel, setRiskLevel] = useState(initialScenario.risk);
+  const [proactivity, setProactivity] = useState(initialScenario.proactivity);
+  const [selectedScenarioId, setSelectedScenarioId] = useState(initialScenario.id);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [promptVersion, setPromptVersion] = useState('');
   const [candidates, setCandidates] = useState<ReplyCandidate[]>([]);
@@ -87,6 +165,7 @@ export function ReplyGenerator({ targets, activeTargetId, onActiveTargetChange, 
   const bubbles = useMemo(() => parseChatBubbles(chatText), [chatText]);
   const effectiveTargetName = selectedTarget?.name || targetName || '手动对象';
   const effectiveTargetStrategy = selectedTarget?.strategy_guideline || selectedTarget?.style_summary || targetStrategy;
+  const selectedScenario = replyScenarios.find((scenario) => scenario.id === selectedScenarioId);
   const visibleCandidates = candidates.length
     ? candidates
     : candidateLabels.map((label, index) => ({
@@ -108,6 +187,17 @@ export function ReplyGenerator({ targets, activeTargetId, onActiveTargetChange, 
   function updateTargetId(nextTargetId: number | null) {
     setInternalTargetId(nextTargetId);
     onActiveTargetChange?.(nextTargetId);
+  }
+
+  function applyScenario(scenario: ReplyScenario) {
+    setSelectedScenarioId(scenario.id);
+    setReplyGoal(scenario.goal);
+    setTone(scenario.tone);
+    setReplyLength(scenario.length);
+    setRiskLevel(scenario.risk);
+    setProactivity(scenario.proactivity);
+    setTargetStrategy(scenario.strategy);
+    setStatus(`已切换场景：${scenario.label}`);
   }
 
   async function handleGenerate() {
@@ -242,16 +332,51 @@ export function ReplyGenerator({ targets, activeTargetId, onActiveTargetChange, 
           </div>
 
           <div className="composer-chip-row">
-            <button type="button" className="chip selected" onClick={() => setReplyGoal(nextOption(replyGoals, replyGoal))}>
+            <button
+              type="button"
+              className="chip selected"
+              onClick={() => {
+                setSelectedScenarioId('custom');
+                setReplyGoal(nextOption(replyGoals, replyGoal));
+              }}
+            >
               {replyGoal}
             </button>
-            <button type="button" className="chip selected" onClick={() => setTone(nextOption(toneOptions, tone))}>
+            <button
+              type="button"
+              className="chip selected"
+              onClick={() => {
+                setSelectedScenarioId('custom');
+                setTone(nextOption(toneOptions, tone));
+              }}
+            >
               {tone}
             </button>
-            <button type="button" className="chip warning-chip" onClick={() => setRiskLevel(nextOption(riskOptions, riskLevel))}>
+            <button
+              type="button"
+              className="chip warning-chip"
+              onClick={() => {
+                setSelectedScenarioId('custom');
+                setRiskLevel(nextOption(riskOptions, riskLevel));
+              }}
+            >
               {riskLevel}
             </button>
           </div>
+
+          <div className="scenario-chip-row" aria-label="常用回复场景">
+            {replyScenarios.map((scenario) => (
+              <button
+                type="button"
+                key={scenario.id}
+                className={`scenario-chip ${scenario.id === selectedScenarioId ? 'active' : ''}`}
+                onClick={() => applyScenario(scenario)}
+              >
+                {scenario.label}
+              </button>
+            ))}
+          </div>
+          <p className="scenario-context">{selectedScenario?.strategy || effectiveTargetStrategy}</p>
 
           <div className="reply-input-row">
             <textarea
@@ -301,7 +426,7 @@ export function ReplyGenerator({ targets, activeTargetId, onActiveTargetChange, 
                 <span>{riskLevel}</span>
               </div>
               <p>{candidate.text || '生成中...'}</p>
-              <small>{replyGoal} · {tone}</small>
+              <small className="candidate-reason">{getCandidateReason(candidate.index, selectedScenario, replyGoal, tone, riskLevel)}</small>
               <div className="candidate-actions">
                 <button type="button" className="secondary" onClick={() => void handleCopy(candidate)} disabled={isPreview || !candidate.text.trim()}>
                   复制

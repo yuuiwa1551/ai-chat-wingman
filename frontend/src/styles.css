@@ -436,6 +436,33 @@ h3 {
   gap: 8px;
 }
 
+.scenario-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scenario-chip {
+  min-height: 32px;
+  border: 1px solid #d8e2dc;
+  background: #f7faf8;
+  color: #34483d;
+  font-size: 12px;
+}
+
+.scenario-chip.active {
+  border-color: #a8cfc4;
+  background: #e8f4f0;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.scenario-context {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .warning-chip {
   border-color: #f0d7c4;
   background: #fff6ef;
@@ -557,6 +584,11 @@ input[type="range"] {
   font-size: 11px;
 }
 
+.candidate-reason {
+  display: block;
+  line-height: 1.45;
+}
+
 .candidate-actions {
   display: flex;
   flex-wrap: wrap;
@@ -641,6 +673,35 @@ input[type="range"] {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.provider-mode-callout {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #efd9bd;
+  border-radius: var(--radius);
+  background: #fff8f0;
+}
+
+.provider-mode-callout.ready {
+  border-color: #c6ddcf;
+  background: #f2faf5;
+}
+
+.provider-mode-callout strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.provider-mode-callout p {
+  color: #6f5a3d;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.provider-mode-callout.ready p {
+  color: var(--color-muted);
 }
 
 label {
@@ -786,6 +847,34 @@ label {
   border: 1px solid #e7d8b5;
   border-radius: var(--radius);
   background: #fffdf8;
+}
+
+.onboarding-demo-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 24px;
+  padding: 18px 20px;
+  border: 1px solid #c6ddcf;
+  border-radius: var(--radius);
+  background: #f4fbf7;
+}
+
+.onboarding-demo-strip strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.onboarding-demo-strip p {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.onboarding-demo-strip button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .onboarding-note strong {
@@ -1223,6 +1312,7 @@ label {
   .workspace-topbar,
   .workspace-topbar-actions,
   .onboarding-actions,
+  .onboarding-demo-strip,
   .section-heading {
     align-items: stretch;
     flex-direction: column;
