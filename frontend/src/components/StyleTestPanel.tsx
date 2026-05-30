@@ -11,7 +11,11 @@ import {
 
 const targetTypes = ['朋友', '暧昧对象', '同事', '伴侣', '家人'];
 
-export function StyleTestPanel() {
+interface StyleTestPanelProps {
+  onProfileSaved?: (profile: UserProfile) => void;
+}
+
+export function StyleTestPanel({ onProfileSaved }: StyleTestPanelProps = {}) {
   const [targetType, setTargetType] = useState(targetTypes[0]);
   const [scenario, setScenario] = useState('对方今天很累，回复欲望不高。');
   const [targetProfile, setTargetProfile] = useState('情绪比较慢热，压力大时不喜欢被连续追问。');
@@ -101,6 +105,7 @@ export function StyleTestPanel() {
       const result = await analyzeStyleTestSession(session.id);
       setAnalysis(result.analysis);
       setProfile(result.profile);
+      onProfileSaved?.(result.profile);
       setStatus(`已保存风格档案，LLM Call #${result.llm_call_id}`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '分析失败');

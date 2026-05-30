@@ -4,6 +4,7 @@ import { ChatTarget, getJob, QQImportResult, startQQJsonImport } from '../api';
 interface QQImportPanelProps {
   targets: ChatTarget[];
   onTargetImported: (target: ChatTarget) => void;
+  onImportComplete?: (result: QQImportResult) => void;
 }
 
 function splitAliases(value: string): string[] {
@@ -17,7 +18,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export function QQImportPanel({ targets, onTargetImported }: QQImportPanelProps) {
+export function QQImportPanel({ targets, onTargetImported, onImportComplete }: QQImportPanelProps) {
   const [file, setFile] = useState<File | null>(null);
   const [meSpeakers, setMeSpeakers] = useState('我');
   const [targetName, setTargetName] = useState('');
@@ -54,6 +55,7 @@ export function QQImportPanel({ targets, onTargetImported }: QQImportPanelProps)
       const imported = await pollImportResult(started.job_id);
       setResult(imported);
       onTargetImported(imported.target);
+      onImportComplete?.(imported);
       setStatus(`导入完成：${imported.message_count} 条消息，已生成 ${imported.profile.name} 与 ${imported.target.name} 档案`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '导入失败');

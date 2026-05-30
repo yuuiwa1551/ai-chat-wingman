@@ -1,132 +1,117 @@
 # AI Chat Wingman
 
-AI 帮聊助手：Windows 桌面悬浮窗优先，使用 PyWebView + React + Vite + FastAPI，同进程运行并通过 PyInstaller 打包。
+AI Chat Wingman 是一个 Windows 优先的本地桌面帮聊助手。它不会自动读取聊天软件，也不会自动发送消息；用户手动粘贴聊天内容、上传截图或导入聊天记录后，应用结合用户表达风格、聊天对象档案和长期记忆，生成可复制的候选回复。
 
-## Repository
+当前仓库已经进入预览版发布准备阶段：核心闭环、桌面壳、Provider 配置、对象档案、风格校准、截图解析、记忆确认、QQ JSON 导入、历史收藏和本地数据导出都已经接入，UI 已按最新 Figma 方向重做。
 
-- GitHub: https://github.com/yuuiwa1551/ai-chat-wingman
-- Default branch: `main`
-- Canonical spec: [docs/ai_chat_wingman_spec_plan.md](docs/ai_chat_wingman_spec_plan.md)
-- Agent rules: [AGENTS.md](AGENTS.md)
+## 当前能力
 
-## Product Boundary
+- 桌面形态：PyWebView + FastAPI 同进程运行，React/Vite 前端由本地 API 托管。
+- 首次使用：可选择导入 QQ JSON、通过模拟聊天校准，或跳过校准直接进入。
+- 回复生成：粘贴聊天内容后通过 SSE 流式生成多条候选回复，支持复制、选中、收藏。
+- 聊天对象：支持对象档案 CRUD、关系/偏好/禁忌/策略记录，并参与回复生成。
+- 风格校准：模拟聊天采样用户表达习惯，保存默认 profile 并生成版本快照。
+- 多模态截图：上传聊天截图后走 LLM 多模态任务解析成可编辑聊天文本。
+- 记忆系统：生成后抽取 pending 记忆，用户确认后才进入 approved 记忆。
+- QQ JSON 导入：通过 jobs 后台任务解析导出记录，生成用户风格和对象档案。
+- Provider 设置：支持 Mock Provider、OpenAI 兼容 Provider、模型列表探测和连通性测试。
+- 本地数据：查看数据目录、表计数和占用空间，支持导出本地备份 zip。
+- 自动构建：GitHub Actions 可在 Windows runner 上测试、构建前端、打包 exe 并上传 zip。
 
-- 不自动读取微信/QQ消息。
-- 不自动发送任何聊天内容。
-- 只生成候选回复，由用户确认、修改、复制、手动发送。
-- 默认本地存储，长期记忆必须可查看、可编辑、可删除。
+## 明确边界
 
-## Phase Order
+- 不自动读取微信、QQ 或其他聊天软件内容。
+- 不自动发送任何消息。
+- 不上传遥测。
+- API Key 不进仓库，必须通过设置页、`app_settings` 或环境变量配置。
+- 用户数据默认保存在本机数据目录，路径由 `backend/app/paths.py` 统一生成。
+- 长期记忆默认进入 pending，必须由用户确认后才会用于后续生成。
 
-1. Phase 0: 架构地基
-2. Phase 1: 预设 + 首次启动向导 + 隐私声明
-3. Phase 4: 文本输入生成回复核心闭环
-4. Phase 2: 风格测试聊天窗口
-5. Phase 3: 聊天对象档案完整化
-6. Phase 5: 多模态截图输入
-7. Phase 7: 记忆系统 v1
-8. Phase 6: QQ JSON 导入
-9. Phase 8: 体验优化
+## 技术栈
 
-## Agent Handoff
-
-任何后续 Agent 开始前必须先阅读：
-
-1. [AGENTS.md](AGENTS.md)
-2. [docs/ai_chat_wingman_spec_plan.md](docs/ai_chat_wingman_spec_plan.md)
-
-每次只实现一个明确阶段或一个小任务，不允许一次性铺完整产品。
-
-## Phase 0 Development
-
-Quick local debug from the repo root:
-
-```powershell
-.\start_app.bat
-.\dev.ps1
-.\dev.ps1 desktop
-.\dev.ps1 test
+```text
+frontend/  React + TypeScript + Vite
+backend/   FastAPI + SQLite + SQLAlchemy + Alembic
+desktop/   PyWebView + Uvicorn 同进程本地服务
+build/     PyInstaller one-file Windows exe
+ci/        GitHub Actions Windows desktop build
 ```
 
-### Backend
+生产模式下，PyInstaller 打出的 `ai-chat-wingman.exe` 会启动本地 FastAPI，并托管 `frontend/dist` 静态资源。PyWebView 窗口通过 `?apiBase=http://127.0.0.1:<port>` 指向当前进程内 API。
 
-```powershell
-Set-Location backend
-uv run python -m pytest -v
-uv run uvicorn app.main:app --reload --port 8000
-```
+## 环境要求
 
-Useful endpoints:
+- Windows 10/11
+- Python 3.11+
+- Node.js 22+
+- PowerShell
+- `uv`
+- WebView2 Runtime
 
-- `GET /healthz`
-- `GET /demo/sse`
-- `POST /jobs/demo`
-- `GET /jobs/{id}`
-- `GET /settings/llm/providers`
-- `PUT /settings/llm/providers/{id}`
-- `POST /settings/llm/providers/{id}/test`
-- `GET /settings/llm/providers/{id}/models`
-- `POST /reply/generate`
-- `POST /reply/{conversation_id}/select`
-- `POST /style-test/sessions`
-- `POST /style-test/sessions/{session_id}/message`
-- `POST /style-test/sessions/{session_id}/analysis`
-- `GET/POST /targets`
-- `GET/PUT/DELETE /targets/{target_id}`
-- `POST /targets/{target_id}/organize`
-- `GET/POST /targets/{target_id}/memories`
-- `POST /targets/{target_id}/memories/extract`
-- `PUT/DELETE /memories/{memory_id}`
-- `POST /memories/{memory_id}/approve`
-- `POST /memories/{memory_id}/reject`
-- `POST /multimodal/parse-chat-screenshot`
-- `POST /import/qq-json`
-- `GET /history/conversations`
-- `POST /history/conversations/{conversation_id}/favorite`
-- `GET /history/favorites`
-- `DELETE /history/favorites/{saved_reply_id}`
-- `GET /privacy/data-summary`
-- `POST /privacy/export`
-
-Phase 4 reply generation is a streaming POST endpoint. It creates a `chat_sessions` row when needed, saves the generation in `conversations`, writes the aggregated LLM metadata to `llm_calls`, and accepts the final user choice with `/reply/{conversation_id}/select`.
-
-Phase 2 style testing creates a simulated chat session, streams the simulated target reply over SSE, analyzes user replies, and saves the merged default profile with a `user_profile_versions` snapshot.
-
-Phase 3 target profiles store relationship, preferences, taboos, and reply strategy. `POST /reply/generate` can take `target_id` so generation reads the saved target profile instead of only ad hoc target text.
-
-Phase 5 screenshot parsing accepts a local screenshot payload, stores the image under the app data screenshot directory, calls the `screenshot_parse` multimodal route, and returns editable structured chat text for reply generation.
-
-Phase 7 memory system v1 extracts reusable long-term memories after reply generation through the `memory_extraction` route and stores them as `pending`. Memories never auto-pollute long-term context: only after a user approves them do they feed into later reply generation. Memories are scoped to a chat target and are listable, editable, approvable, rejectable, and deletable.
-
-Phase 6 QQ JSON import is a background job. The frontend reads a user-selected local JSON file, posts it to `/import/qq-json` with the sender aliases that count as “me”, then polls `/jobs/{id}`. The job stores the raw file under the app data imports directory, parses messages through the QQ importer, creates a `chat_import` default user profile, and creates or updates the selected chat target profile.
-
-Phase 8 starts with daily-use polish: the reply panel can read text from the clipboard, successful generation moves the used target to the top, users can favorite generated replies, and the history panel searches saved conversations plus favorite replies.
-
-Phase 8 also includes local data management. `/privacy/data-summary` reports the app data path, table counts, and storage usage. `/privacy/export` creates a local zip backup through the `jobs` table and writes it under the app data backups directory.
-
-Provider settings can detect available remote models through `/settings/llm/providers/{id}/models`. The frontend stores the provider first, then shows the returned model list as a dropdown so users do not need to type model names manually.
-
-### Frontend
+首次开发前安装依赖：
 
 ```powershell
 Set-Location frontend
 npm install
-npm run dev
-npm run build
+
+Set-Location ..\backend
+uv sync --group dev --extra desktop --extra build
 ```
 
-When running the frontend alone, it defaults to `http://127.0.0.1:8000` for the API. PyWebView passes the active FastAPI port with `?apiBase=...`.
+## 本地开发
 
-### Desktop Shell
+从仓库根目录启动：
 
-Dev mode loads the Vite server and starts FastAPI on a local port:
+```powershell
+.\start_app.bat
+```
+
+常用开发命令：
+
+```powershell
+.\dev.ps1 web       # 分别启动 FastAPI 和 Vite
+.\dev.ps1 desktop   # 启动 Vite + PyWebView 桌面壳
+.\dev.ps1 backend   # 只启动 FastAPI
+.\dev.ps1 frontend  # 只启动 Vite
+.\dev.ps1 test      # 后端 pytest
+.\dev.ps1 build     # 前端 build
+.\dev.ps1 verify    # 本地完整桌面包验证
+```
+
+如果只跑前端，它默认请求 `http://127.0.0.1:8000`。桌面壳会自动传入真实 API 端口：
+
+```text
+http://127.0.0.1:<api_port>/?apiBase=http://127.0.0.1:<api_port>
+```
+
+## 本地验证
+
+后端测试：
 
 ```powershell
 Set-Location backend
-uv run --extra desktop python -m app.desktop.launcher --dev-server http://127.0.0.1:5173
+uv run --group dev python -m pytest -v
 ```
 
-Production packaging expects `frontend/dist` to exist:
+前端构建：
+
+```powershell
+Set-Location frontend
+npm run build
+```
+
+完整桌面包验证：
+
+```powershell
+Set-Location ..
+.\scripts\verify_desktop_package.ps1
+```
+
+`verify_desktop_package.ps1` 会构建前端、用 PyInstaller 打包 exe、启动打包产物，并验证 `/healthz`、首次启动状态、Provider、回复生成、截图解析、记忆、风格测试和数据导出等关键路径。
+
+## 打包
+
+手动打包 Windows exe：
 
 ```powershell
 Set-Location frontend
@@ -136,21 +121,99 @@ Set-Location ..\backend
 uv run --extra desktop --extra build python -m PyInstaller ..\build\wingman.spec --noconfirm
 ```
 
-Run the full packaged-app verification before calling the desktop build good. This builds the frontend, packages the exe, starts it on a fixed local port, and checks `/healthz` plus onboarding status from outside the process:
+默认产物：
 
-```powershell
-.\scripts\verify_desktop_package.ps1
+```text
+backend/dist/ai-chat-wingman.exe
 ```
 
-Core validation before pushing a phase branch:
+发布前建议跑完整验证脚本，而不是只检查 exe 是否存在。
+
+## GitHub 自动构建
+
+Workflow 文件：
+
+```text
+.github/workflows/windows-desktop-build.yml
+```
+
+触发条件：
+
+- push 到 `main`
+- pull request 到 `main`
+- 手动 `workflow_dispatch`
+- 推送 `v*` tag
+
+CI 步骤：
+
+1. 安装 Python、Node 和 `uv`
+2. `npm ci`
+3. `uv run --group dev python -m pytest -v`
+4. `npm run build`
+5. PyInstaller 打包 `ai-chat-wingman.exe`
+6. 压缩为 `ai-chat-wingman-windows-<tag-or-sha>.zip`
+7. 上传 GitHub Actions artifact
+8. 如果是 `v*` tag，创建或更新 GitHub Release 并上传 zip
+
+创建一个版本包：
 
 ```powershell
-Set-Location backend
-uv run python -m pytest -v
-
-Set-Location ..\frontend
-npm run build
-
-Set-Location ..
-.\scripts\verify_desktop_package.ps1
+git tag v0.1.0
+git push origin v0.1.0
 ```
+
+GitHub runner 不启动 PyWebView 窗口，避免 CI 图形环境导致误报。桌面启动验证仍以本地 `.\scripts\verify_desktop_package.ps1` 为准。
+
+## 数据目录
+
+默认数据目录由 `backend/app/paths.py` 管理：
+
+```text
+%APPDATA%/AIChatWingman/
+├─ db/app.sqlite
+├─ screenshots/
+├─ imports/
+├─ logs/
+└─ backups/
+```
+
+测试或打包验证可临时覆盖：
+
+```powershell
+$env:AI_CHAT_WINGMAN_DATA_DIR = "C:\Temp\AIChatWingmanData"
+```
+
+## 主要 API
+
+- `GET /healthz`
+- `GET /onboarding/status`
+- `GET /onboarding/style-presets`
+- `POST /onboarding/default-profile`
+- `GET/PUT /settings/llm/providers/{provider_id}`
+- `POST /settings/llm/providers/{provider_id}/test`
+- `GET /settings/llm/providers/{provider_id}/models`
+- `POST /reply/generate`
+- `POST /reply/{conversation_id}/select`
+- `POST /style-test/sessions`
+- `POST /style-test/sessions/{session_id}/message`
+- `POST /style-test/sessions/{session_id}/analysis`
+- `GET/POST/PUT/DELETE /targets`
+- `POST /targets/{target_id}/organize`
+- `GET/POST /targets/{target_id}/memories`
+- `POST /memories/{memory_id}/approve`
+- `POST /memories/{memory_id}/reject`
+- `POST /multimodal/parse-chat-screenshot`
+- `POST /import/qq-json`
+- `GET /jobs/{job_id}`
+- `GET /history/conversations`
+- `GET /history/favorites`
+- `GET /privacy/data-summary`
+- `POST /privacy/export`
+
+## 文档
+
+- [AGENTS.md](AGENTS.md): Agent / Codex / Copilot 工作规则。
+- [docs/ai_chat_wingman_spec_plan.md](docs/ai_chat_wingman_spec_plan.md): 产品 spec 和 phase plan。
+- [docs/frontend_uiux_redesign_plan.md](docs/frontend_uiux_redesign_plan.md): 当前 UI/UX 重做计划。
+
+后续任务仍按 `AGENTS.md` 约束执行：每次只做一个 phase、issue 或可验收小任务；遇到 spec 与实现冲突时先按 spec 保守执行，必要时先修 spec。
