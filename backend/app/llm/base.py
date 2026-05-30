@@ -28,6 +28,9 @@ class LLMProvider(ABC):
     provider_id: str
     model: str
 
+    async def list_models(self) -> list[str]:
+        return [self.model]
+
     @abstractmethod
     async def complete(self, messages: list[LLMMessage], **opts: object) -> LLMResponse:
         raise NotImplementedError

@@ -12,6 +12,9 @@ class MockProvider(LLMProvider):
         self.provider_id = provider_id
         self.model = model
 
+    async def list_models(self) -> list[str]:
+        return sorted({self.model, "mock-chat", "mock-vision"})
+
     async def complete(self, messages: list[LLMMessage], **opts: object) -> LLMResponse:
         user_text = next((message.content for message in reversed(messages) if message.role == "user"), "")
         system_text = next((message.content for message in messages if message.role == "system"), "")

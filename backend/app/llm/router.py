@@ -59,3 +59,8 @@ async def test_provider(db: Session, provider_config: dict[str, object]) -> dict
         call=run_call,
     )
     return {"ok": True, "text": response.text, "llm_call_id": llm_call.id}
+
+
+async def list_provider_models(provider_config: dict[str, object]) -> list[str]:
+    provider = provider_from_config(provider_config)
+    return await provider.list_models()

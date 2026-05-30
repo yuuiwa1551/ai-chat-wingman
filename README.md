@@ -56,6 +56,7 @@ Useful endpoints:
 - `GET /settings/llm/providers`
 - `PUT /settings/llm/providers/{id}`
 - `POST /settings/llm/providers/{id}/test`
+- `GET /settings/llm/providers/{id}/models`
 - `POST /reply/generate`
 - `POST /reply/{conversation_id}/select`
 - `POST /style-test/sessions`
@@ -93,6 +94,8 @@ Phase 6 QQ JSON import is a background job. The frontend reads a user-selected l
 Phase 8 starts with daily-use polish: the reply panel can read text from the clipboard, successful generation moves the used target to the top, users can favorite generated replies, and the history panel searches saved conversations plus favorite replies.
 
 Phase 8 also includes local data management. `/privacy/data-summary` reports the app data path, table counts, and storage usage. `/privacy/export` creates a local zip backup through the `jobs` table and writes it under the app data backups directory.
+
+Provider settings can detect available remote models through `/settings/llm/providers/{id}/models`. The frontend stores the provider first, then shows the returned model list as a dropdown so users do not need to type model names manually.
 
 ### Frontend
 

@@ -55,6 +55,44 @@ def test_provider_settings_test_logs_llm_call() -> None:
         assert body["ok"] is True
         assert body["llm_call_id"] >= 1
 
+        models_response = client.get("/settings/llm/providers/local-mock/models")
+        assert models_response.status_code == 200
+        models_body = models_response.json()
+        assert "mock-chat" in models_body["models"]
+        assert models_body["default_model"] == "mock-chat"
+
+
+def test_provider_update_preserves_existing_secret_when_masked_or_empty() -> None:
+    from app.db.database import SessionLocal
+    from app.db.models import AppSetting
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        payload = {
+            "id": "remote",
+            "type": "openai_compatible",
+            "base_url": "https://api.example.test/v1",
+            "api_key": "real-secret",
+            "default_model": "chat-a",
+            "enabled": True,
+        }
+        assert client.put("/settings/llm/providers/remote", json=payload).status_code == 200
+
+        update_response = client.put(
+            "/settings/llm/providers/remote",
+            json={**payload, "api_key": "", "default_model": "chat-b"},
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["provider"]["api_key"] == "***"
+
+        with SessionLocal() as db:
+            setting = db.get(AppSetting, "llm.providers")
+            assert setting is not None
+            providers = json.loads(setting.value or "[]")
+        remote = next(provider for provider in providers if provider["id"] == "remote")
+        assert remote["api_key"] == "real-secret"
+        assert remote["default_model"] == "chat-b"
+
 
 def test_demo_job_reaches_success() -> None:
     from app.main import create_app

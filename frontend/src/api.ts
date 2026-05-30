@@ -231,6 +231,12 @@ export interface BackupExportResult {
   created_at: string;
 }
 
+export interface ProviderModelsResult {
+  provider_id: string;
+  models: string[];
+  default_model: string | null;
+}
+
 interface SseHandlers {
   onEvent: (eventName: string, data: unknown) => void;
 }
@@ -269,6 +275,10 @@ export async function saveProvider(provider: LlmProviderConfig): Promise<LlmProv
 
 export async function testProvider(providerId: string): Promise<{ ok: boolean; text: string; llm_call_id: number }> {
   return requestJson(`/settings/llm/providers/${providerId}/test`, { method: 'POST' });
+}
+
+export async function listProviderModels(providerId: string): Promise<ProviderModelsResult> {
+  return requestJson(`/settings/llm/providers/${providerId}/models`);
 }
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {

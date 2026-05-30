@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.config import DEFAULT_TASK_ROUTING
 from app.db.database import get_db
-from app.llm.router import test_provider
+from app.llm.router import list_provider_models, test_provider
 from app.settings_store import get_json_setting, set_json_setting
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -49,7 +49,10 @@ def upsert_provider(provider_id: str, payload: LLMProviderConfig, db: Session = 
         raise HTTPException(status_code=400, detail="Provider id mismatch")
 
     providers = get_json_setting(db, "llm.providers", [])
+    existing = next((provider for provider in providers if provider.get("id") == provider_id), None)
     provider_data = payload.model_dump()
+    if existing is not None and provider_data.get("api_key") in (None, "", "***") and existing.get("api_key"):
+        provider_data["api_key"] = existing.get("api_key")
     next_providers = [provider for provider in providers if provider.get("id") != provider_id]
     next_providers.append(provider_data)
     set_json_setting(db, "llm.providers", next_providers, is_secret=True)
@@ -63,6 +66,19 @@ async def test_llm_provider(provider_id: str, db: Session = Depends(get_db)) -> 
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
     return await test_provider(db, provider)
+
+
+@router.get("/llm/providers/{provider_id}/models")
+async def read_provider_models(provider_id: str, db: Session = Depends(get_db)) -> dict[str, object]:
+    providers = get_json_setting(db, "llm.providers", [])
+    provider = next((item for item in providers if item.get("id") == provider_id), None)
+    if provider is None:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    try:
+        models = await list_provider_models(provider)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to list provider models: {exc}") from exc
+    return {"provider_id": provider_id, "models": models, "default_model": provider.get("default_model")}
 
 
 @router.get("/llm/task-routing")

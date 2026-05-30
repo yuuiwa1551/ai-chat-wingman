@@ -16,6 +16,26 @@ class OpenAICompatibleProvider(LLMProvider):
         self.api_key = api_key
         self.model = model
 
+    async def list_models(self) -> list[str]:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.get(
+                f"{self.base_url}/models",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+            )
+            response.raise_for_status()
+        body = response.json()
+        data = body.get("data") if isinstance(body, dict) else None
+        if not isinstance(data, list):
+            return [self.model]
+        models = sorted(
+            {
+                str(item.get("id")).strip()
+                for item in data
+                if isinstance(item, dict) and item.get("id") is not None and str(item.get("id")).strip()
+            }
+        )
+        return models or [self.model]
+
     async def complete(self, messages: list[LLMMessage], **opts: object) -> LLMResponse:
         payload = {
             "model": self.model,

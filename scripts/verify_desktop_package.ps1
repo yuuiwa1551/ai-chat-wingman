@@ -85,6 +85,21 @@ try {
         Write-Host $status.Content
     }
 
+    Invoke-Step "Verify provider model listing" {
+        $providerPayload = @{
+            id = "local-mock"
+            type = "mock"
+            default_model = "mock-chat"
+            enabled = $true
+        } | ConvertTo-Json
+        Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Put -ContentType "application/json" -Body $providerPayload "http://127.0.0.1:$Port/settings/llm/providers/local-mock" | Out-Null
+        $models = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://127.0.0.1:$Port/settings/llm/providers/local-mock/models" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not ($models.models -contains "mock-chat")) {
+            throw "Provider model listing did not include mock-chat."
+        }
+        Write-Host "Provider model listing verified."
+    }
+
     Invoke-Step "Verify reply generation endpoint" {
         $statusBody = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 "http://127.0.0.1:$Port/onboarding/status" | Select-Object -ExpandProperty Content | ConvertFrom-Json
         if (-not $statusBody.has_default_profile) {
