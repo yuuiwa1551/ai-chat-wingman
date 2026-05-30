@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { favoriteReply, generateReply, selectReply } from '../api';
 import type { ChatTarget, ReplyCandidate } from '../api';
+import { buildTargetPromptSummary, buildTargetRules } from '../targetInsights';
 import { ImageInputPanel } from './ImageInputPanel';
 
 const replyGoals = ['接住情绪', '自然接话', '推进邀约', '解释清楚', '结束话题'];
@@ -166,6 +167,8 @@ export function ReplyGenerator({ targets, activeTargetId, onActiveTargetChange, 
   const effectiveTargetName = selectedTarget?.name || targetName || '手动对象';
   const effectiveTargetStrategy = selectedTarget?.strategy_guideline || selectedTarget?.style_summary || targetStrategy;
   const selectedScenario = replyScenarios.find((scenario) => scenario.id === selectedScenarioId);
+  const targetRules = useMemo(() => buildTargetRules(selectedTarget), [selectedTarget]);
+  const targetPromptSummary = useMemo(() => buildTargetPromptSummary(selectedTarget), [selectedTarget]);
   const visibleCandidates = candidates.length
     ? candidates
     : candidateLabels.map((label, index) => ({
@@ -377,6 +380,22 @@ export function ReplyGenerator({ targets, activeTargetId, onActiveTargetChange, 
             ))}
           </div>
           <p className="scenario-context">{selectedScenario?.strategy || effectiveTargetStrategy}</p>
+
+          <div className={`target-impact-strip ${selectedTarget ? '' : 'empty'}`}>
+            <div className="target-impact-heading">
+              <strong>{selectedTarget ? `${effectiveTargetName} 会影响这轮回复` : '未选择对象档案'}</strong>
+              <span>{selectedTarget?.relationship || '通用策略'}</span>
+            </div>
+            <div className="target-impact-rule-row">
+              {targetRules.map((rule) => (
+                <span key={`${rule.label}-${rule.text}`}>
+                  <strong>{rule.label}</strong>
+                  {rule.text}
+                </span>
+              ))}
+            </div>
+            <p>{targetPromptSummary}</p>
+          </div>
 
           <div className="reply-input-row">
             <textarea

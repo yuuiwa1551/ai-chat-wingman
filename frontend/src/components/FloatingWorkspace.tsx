@@ -8,6 +8,7 @@ import { QQImportPanel } from './QQImportPanel';
 import { ReplyGenerator } from './ReplyGenerator';
 import { StyleTestPanel } from './StyleTestPanel';
 import { TargetManager } from './TargetManager';
+import { buildTargetPromptSummary, buildTargetRules } from '../targetInsights';
 
 type WorkspacePanel = 'reply' | 'targets' | 'import' | 'memory' | 'history' | 'data' | 'style' | 'settings';
 
@@ -124,6 +125,8 @@ interface TargetSidebarProps {
 
 function TargetSidebar({ targets, activeTargetId, onActiveTargetChange, onCreateTarget }: TargetSidebarProps) {
   const activeTarget = targets.find((target) => target.id === activeTargetId) || targets[0] || null;
+  const targetRules = buildTargetRules(activeTarget);
+  const targetPromptSummary = buildTargetPromptSummary(activeTarget);
 
   return (
     <aside className="target-sidebar">
@@ -154,8 +157,20 @@ function TargetSidebar({ targets, activeTargetId, onActiveTargetChange, onCreate
       </div>
 
       <div className="target-tip-card">
-        <h3>对象提示</h3>
-        <p>{activeTarget?.strategy_guideline || activeTarget?.style_summary || 'AI 会根据你与 Ta 的关系、偏好和禁忌组织回复。'}</p>
+        <h3>回复会这样调整</h3>
+        <ul className="target-rule-list">
+          {targetRules.map((rule) => (
+            <li key={`${rule.label}-${rule.text}`}>
+              <span>{rule.label}</span>
+              <p>{rule.text}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="target-prompt-card">
+        <h3>Prompt 摘要</h3>
+        <p>{targetPromptSummary}</p>
       </div>
 
       <div className="local-status-card">

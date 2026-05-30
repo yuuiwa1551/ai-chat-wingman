@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChatTarget, createTarget, deleteTarget, organizeTarget, updateTarget } from '../api';
+import { buildTargetPromptSummary, buildTargetRules } from '../targetInsights';
 
 const emptyDraft = {
   name: '',
@@ -38,6 +39,8 @@ export function TargetManager({ targets, onTargetsChange }: TargetManagerProps) 
   const [notes, setNotes] = useState('她压力大时不喜欢被催回复，更喜欢低压力、短一点的关心。');
   const [status, setStatus] = useState('等待创建或选择对象档案');
   const [saving, setSaving] = useState(false);
+  const previewRules = buildTargetRules(draft);
+  const previewSummary = buildTargetPromptSummary(draft);
 
   function replaceTarget(nextTarget: ChatTarget) {
     const exists = targets.some((target) => target.id === nextTarget.id);
@@ -136,6 +139,22 @@ export function TargetManager({ targets, onTargetsChange }: TargetManagerProps) 
               {target.name}
             </button>
           ))}
+        </div>
+
+        <div className="target-value-preview">
+          <div className="target-value-heading">
+            <strong>保存后会影响回复</strong>
+            <span>{draft.name || '新对象'}</span>
+          </div>
+          <div className="target-value-rule-grid">
+            {previewRules.map((rule) => (
+              <div key={`${rule.label}-${rule.text}`}>
+                <span>{rule.label}</span>
+                <p>{rule.text}</p>
+              </div>
+            ))}
+          </div>
+          <p>{previewSummary}</p>
         </div>
 
         <div className="form-grid target-form">
