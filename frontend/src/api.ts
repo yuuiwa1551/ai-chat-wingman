@@ -60,6 +60,8 @@ export interface ConversationRecord {
   id: number;
   chat_session_id: number;
   target_id: number | null;
+  target_name: string | null;
+  input_text: string;
   prompt_version: string;
   llm_call_id: number | null;
   generated_replies: string | null;
@@ -199,6 +201,16 @@ export interface QQJsonImportPayload {
   target_name?: string | null;
 }
 
+export interface SavedReply {
+  id: number;
+  conversation_id: number;
+  target_id: number | null;
+  candidate_index: number | null;
+  text: string;
+  note: string | null;
+  created_at: string;
+}
+
 interface SseHandlers {
   onEvent: (eventName: string, data: unknown) => void;
 }
@@ -336,6 +348,31 @@ export async function selectReply(conversationId: number, selectedIndex: number)
     body: JSON.stringify({ selected_index: selectedIndex }),
   });
   return body.conversation;
+}
+
+export async function favoriteReply(
+  conversationId: number,
+  payload: { candidate_index?: number | null; selected_reply?: string | null; note?: string | null },
+): Promise<SavedReply> {
+  const body = await requestJson<{ saved_reply: SavedReply }>(`/history/conversations/${conversationId}/favorite`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return body.saved_reply;
+}
+
+export async function listConversations(params: { query?: string; target_id?: number | null; limit?: number } = {}): Promise<ConversationRecord[]> {
+  const body = await requestJson<{ conversations: ConversationRecord[] }>(`/history/conversations${queryString(params)}`);
+  return body.conversations;
+}
+
+export async function listSavedReplies(params: { query?: string; target_id?: number | null; limit?: number } = {}): Promise<SavedReply[]> {
+  const body = await requestJson<{ saved_replies: SavedReply[] }>(`/history/favorites${queryString(params)}`);
+  return body.saved_replies;
+}
+
+export async function deleteSavedReply(savedReplyId: number): Promise<void> {
+  await requestJson<{ ok: boolean }>(`/history/favorites/${savedReplyId}`, { method: 'DELETE' });
 }
 
 export async function createStyleTestSession(payload: {
@@ -533,6 +570,17 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
     reader.readAsDataURL(file);
   });
+}
+
+function queryString(params: Record<string, string | number | null | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== '') {
+      search.set(key, String(value));
+    }
+  }
+  const serialized = search.toString();
+  return serialized ? `?${serialized}` : '';
 }
 
 export { apiBaseUrl };

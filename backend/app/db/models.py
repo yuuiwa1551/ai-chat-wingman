@@ -202,6 +202,29 @@ class Conversation(Base):
         }
 
 
+class SavedReply(Base):
+    __tablename__ = "saved_replies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    conversation_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    candidate_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "conversation_id": self.conversation_id,
+            "target_id": self.target_id,
+            "candidate_index": self.candidate_index,
+            "text": self.text,
+            "note": self.note,
+            "created_at": self.created_at,
+        }
+
+
 class ChatTarget(Base):
     __tablename__ = "chat_targets"
 

@@ -483,6 +483,64 @@ input[type="range"] {
   background: rgba(252, 255, 253, 0.92);
 }
 
+.history-panel {
+  border-color: #cad4d9;
+  background: rgba(250, 253, 255, 0.9);
+}
+
+.history-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  gap: 8px;
+}
+
+.history-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.history-columns h3 {
+  margin: 0 0 8px;
+  color: #3b5546;
+  font-size: 13px;
+}
+
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-item {
+  border: 1px solid #d3ddd6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fbfdfb;
+}
+
+.favorite-item {
+  border-color: #b8cbbb;
+  background: #edf6ef;
+}
+
+.history-item p {
+  margin: 6px 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.history-item small {
+  display: block;
+  color: #607568;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.compact-empty {
+  min-height: 56px;
+}
+
 .import-panel {
   border-color: #c9d3c2;
   background: rgba(255, 254, 250, 0.9);
@@ -602,6 +660,11 @@ input[type="range"] {
   }
 
   .memory-add {
+    grid-template-columns: 1fr;
+  }
+
+  .history-search-row,
+  .history-columns {
     grid-template-columns: 1fr;
   }
 }

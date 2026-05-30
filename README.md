@@ -71,6 +71,10 @@ Useful endpoints:
 - `POST /memories/{memory_id}/reject`
 - `POST /multimodal/parse-chat-screenshot`
 - `POST /import/qq-json`
+- `GET /history/conversations`
+- `POST /history/conversations/{conversation_id}/favorite`
+- `GET /history/favorites`
+- `DELETE /history/favorites/{saved_reply_id}`
 
 Phase 4 reply generation is a streaming POST endpoint. It creates a `chat_sessions` row when needed, saves the generation in `conversations`, writes the aggregated LLM metadata to `llm_calls`, and accepts the final user choice with `/reply/{conversation_id}/select`.
 
@@ -83,6 +87,8 @@ Phase 5 screenshot parsing accepts a local screenshot payload, stores the image 
 Phase 7 memory system v1 extracts reusable long-term memories after reply generation through the `memory_extraction` route and stores them as `pending`. Memories never auto-pollute long-term context: only after a user approves them do they feed into later reply generation. Memories are scoped to a chat target and are listable, editable, approvable, rejectable, and deletable.
 
 Phase 6 QQ JSON import is a background job. The frontend reads a user-selected local JSON file, posts it to `/import/qq-json` with the sender aliases that count as “me”, then polls `/jobs/{id}`. The job stores the raw file under the app data imports directory, parses messages through the QQ importer, creates a `chat_import` default user profile, and creates or updates the selected chat target profile.
+
+Phase 8 starts with daily-use polish: the reply panel can read text from the clipboard, successful generation moves the used target to the top, users can favorite generated replies, and the history panel searches saved conversations plus favorite replies.
 
 ### Frontend
 

@@ -15,6 +15,7 @@ import {
 } from './api';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { MemoryReviewPanel } from './components/MemoryReviewPanel';
+import { HistoryPanel } from './components/HistoryPanel';
 import { QQImportPanel } from './components/QQImportPanel';
 import { ReplyGenerator } from './components/ReplyGenerator';
 import { StyleTestPanel } from './components/StyleTestPanel';
@@ -108,7 +109,19 @@ export function App() {
 
       {onboardingStatus?.has_default_profile ? <MemoryReviewPanel targets={targets} /> : null}
 
-      {onboardingStatus?.has_default_profile ? <ReplyGenerator targets={targets} /> : null}
+      {onboardingStatus?.has_default_profile ? (
+        <ReplyGenerator
+          targets={targets}
+          onTargetUsed={(targetId) => {
+            setTargets((current) => {
+              const used = current.find((target) => target.id === targetId);
+              return used ? [used, ...current.filter((target) => target.id !== targetId)] : current;
+            });
+          }}
+        />
+      ) : null}
+
+      {onboardingStatus?.has_default_profile ? <HistoryPanel targets={targets} /> : null}
 
       {onboardingStatus?.has_default_profile ? <StyleTestPanel /> : null}
 

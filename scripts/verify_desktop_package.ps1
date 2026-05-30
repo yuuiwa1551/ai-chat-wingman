@@ -134,6 +134,17 @@ try {
         if ($reply.Content -notmatch "event: done" -or $reply.Content -notmatch "event: candidate") {
             throw "Reply generation SSE did not include candidate and done events."
         }
+        $doneLine = ($reply.Content -split "`n" | Where-Object { $_ -like "data: *conversation_id*" } | Select-Object -Last 1)
+        $donePayload = $doneLine.Substring(6) | ConvertFrom-Json
+        $favoritePayload = @{ candidate_index = 0; note = "package verification favorite" } | ConvertTo-Json
+        $favorite = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Method Post -ContentType "application/json" -Body $favoritePayload "http://127.0.0.1:$Port/history/conversations/$($donePayload.conversation_id)/favorite" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not $favorite.saved_reply.id) {
+            throw "Favorite reply endpoint did not return a saved reply."
+        }
+        $history = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://127.0.0.1:$Port/history/conversations?query=Target" | Select-Object -ExpandProperty Content | ConvertFrom-Json
+        if (-not $history.conversations -or $history.conversations.Count -lt 1) {
+            throw "History search did not return the generated conversation."
+        }
         Write-Host "Reply generation SSE verified."
     }
 

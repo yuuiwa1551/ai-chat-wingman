@@ -428,6 +428,46 @@ def test_qq_json_import_job_creates_profile_and_target() -> None:
             assert any(version.merge_reason == "chat_import_create" and version.source_job_id == job_id for version in versions)
 
 
+def test_history_search_and_favorite_reply() -> None:
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        target = client.post("/targets", json={"name": "置顶对象", "relationship": "朋友"}).json()["target"]
+        target_id = target["id"]
+
+        reply_response = client.post(
+            "/reply/generate",
+            json={"chat_text": "对方：今天被工作折腾麻了。", "target_id": target_id, "candidate_count": 2},
+        )
+        assert reply_response.status_code == 200
+        done = _sse_payload(reply_response.text, "done")
+        conversation_id = done["conversation_id"]
+
+        favorite_response = client.post(f"/history/conversations/{conversation_id}/favorite", json={"candidate_index": 1, "note": "适合低压力安慰"})
+        assert favorite_response.status_code == 200
+        saved_reply = favorite_response.json()["saved_reply"]
+        assert saved_reply["conversation_id"] == conversation_id
+        assert saved_reply["target_id"] == target_id
+        assert saved_reply["text"] == done["replies"][1]
+
+        history_response = client.get("/history/conversations", params={"query": "折腾麻", "limit": 5})
+        assert history_response.status_code == 200
+        conversations = history_response.json()["conversations"]
+        assert any(item["id"] == conversation_id for item in conversations)
+
+        favorites_response = client.get("/history/favorites", params={"query": "安慰"})
+        assert favorites_response.status_code == 200
+        assert any(item["id"] == saved_reply["id"] for item in favorites_response.json()["saved_replies"])
+
+        targets_response = client.get("/targets")
+        assert targets_response.status_code == 200
+        assert targets_response.json()["targets"][0]["id"] == target_id
+
+        delete_response = client.delete(f"/history/favorites/{saved_reply['id']}")
+        assert delete_response.status_code == 200
+        assert client.get("/history/favorites", params={"query": "安慰"}).json()["saved_replies"] == []
+
+
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
     for block in response_text.split("\n\n"):
         if f"event: {event_name}" not in block:

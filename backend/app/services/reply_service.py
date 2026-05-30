@@ -137,6 +137,10 @@ def finish_reply_generation(
     conversation.llm_call_id = llm_call.id
     conversation.generated_replies = response_summary
     conversation.updated_at = now
+    if conversation.target_id is not None:
+        target = db.get(ChatTarget, conversation.target_id)
+        if target is not None:
+            target.updated_at = now
     db.commit()
     db.refresh(conversation)
     return llm_call

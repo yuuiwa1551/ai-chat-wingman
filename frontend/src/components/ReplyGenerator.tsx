@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChatTarget, generateReply, ReplyCandidate, selectReply } from '../api';
+import { ChatTarget, favoriteReply, generateReply, ReplyCandidate, selectReply } from '../api';
 import { ImageInputPanel } from './ImageInputPanel';
 
 const replyGoals = ['安慰并保留继续聊天空间', '自然接话', '推进邀约', '解释清楚', '结束话题但不生硬'];
@@ -21,9 +21,10 @@ function upsertCandidate(items: ReplyCandidate[], index: number, text: string, m
 
 interface ReplyGeneratorProps {
   targets: ChatTarget[];
+  onTargetUsed?: (targetId: number) => void;
 }
 
-export function ReplyGenerator({ targets }: ReplyGeneratorProps) {
+export function ReplyGenerator({ targets, onTargetUsed }: ReplyGeneratorProps) {
   const [chatText, setChatText] = useState('对方：今天真的累死了，不太想说话。');
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
   const [targetName, setTargetName] = useState('');
@@ -81,11 +82,28 @@ export function ReplyGenerator({ targets }: ReplyGeneratorProps) {
       setConversationId(result.conversation_id);
       setPromptVersion(result.prompt_version);
       setCandidates(result.replies.map((text, index) => ({ index, text })));
+      if (selectedTargetId !== null) {
+        onTargetUsed?.(selectedTargetId);
+      }
       setStatus(`生成完成，LLM Call #${result.llm_call_id}`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '生成失败');
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleReadClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setStatus('剪贴板里没有可用文本');
+        return;
+      }
+      setChatText(text);
+      setStatus('已读取剪贴板文本');
+    } catch {
+      setStatus('读取剪贴板失败，可以手动粘贴到输入框');
     }
   }
 
@@ -111,6 +129,19 @@ export function ReplyGenerator({ targets }: ReplyGeneratorProps) {
     }
   }
 
+  async function handleFavorite(candidate: ReplyCandidate) {
+    if (!conversationId || !candidate.text.trim()) {
+      setStatus('先生成完整候选后再收藏');
+      return;
+    }
+    try {
+      const saved = await favoriteReply(conversationId, { candidate_index: candidate.index });
+      setStatus(`已收藏回复 #${saved.id}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '收藏失败');
+    }
+  }
+
   return (
     <section className="panel reply-panel">
       <div className="section-heading">
@@ -122,6 +153,11 @@ export function ReplyGenerator({ targets }: ReplyGeneratorProps) {
         当前聊天内容
         <textarea value={chatText} onChange={(event) => setChatText(event.target.value)} />
       </label>
+      <div className="actions compact-actions">
+        <button type="button" className="secondary" onClick={() => void handleReadClipboard()}>
+          读取剪贴板
+        </button>
+      </div>
 
       <ImageInputPanel
         onApplyText={(nextChatText) => {
@@ -230,6 +266,9 @@ export function ReplyGenerator({ targets }: ReplyGeneratorProps) {
               </button>
               <button type="button" onClick={() => void handleSelect(candidate)} disabled={!conversationId || !candidate.text.trim()}>
                 选中
+              </button>
+              <button type="button" className="secondary" onClick={() => void handleFavorite(candidate)} disabled={!conversationId || !candidate.text.trim()}>
+                收藏
               </button>
             </div>
           </article>
