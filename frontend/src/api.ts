@@ -150,6 +150,55 @@ export interface ChatScreenshotParseResult {
   prompt_version: string;
 }
 
+export interface JobRecord {
+  id: number;
+  job_type: string;
+  status: 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+  progress: number;
+  payload: string | null;
+  result: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImportedMessagePreview {
+  role: 'me' | 'target' | 'unknown';
+  speaker: string;
+  content: string;
+  timestamp: string | null;
+}
+
+export interface QQImportResult {
+  import_id: number;
+  raw_path: string;
+  message_count: number;
+  user_message_count: number;
+  target_message_count: number;
+  speaker_counts: Record<string, number>;
+  messages_preview: ImportedMessagePreview[];
+  profile: UserProfile;
+  target: ChatTarget;
+  analysis: {
+    user: StyleTestAnalysis;
+    target: {
+      relationship: string;
+      style_summary: string;
+      preferences: string;
+      taboos: string;
+      strategy_guideline: string;
+    };
+  };
+}
+
+export interface QQJsonImportPayload {
+  filename?: string | null;
+  raw_json: unknown;
+  me_speakers: string[];
+  target_id?: number | null;
+  target_name?: string | null;
+}
+
 interface SseHandlers {
   onEvent: (eventName: string, data: unknown) => void;
 }
@@ -429,6 +478,17 @@ export async function parseChatScreenshot(file: File): Promise<ChatScreenshotPar
       image_base64: imageData,
     }),
   });
+}
+
+export async function startQQJsonImport(payload: QQJsonImportPayload): Promise<{ job_id: number; status: string }> {
+  return requestJson('/import/qq-json', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getJob(jobId: number): Promise<JobRecord> {
+  return requestJson(`/jobs/${jobId}`);
 }
 
 async function readSseResponse(response: Response, handlers: SseHandlers): Promise<void> {

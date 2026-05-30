@@ -40,7 +40,7 @@ try {
 
     Invoke-Step "Build desktop exe" {
         Push-Location $backendRoot
-        uv run --extra desktop --extra build pyinstaller ..\build\wingman.spec --noconfirm --distpath $distPath --workpath $workPath
+        uv run --extra desktop --extra build python -m PyInstaller ..\build\wingman.spec --noconfirm --distpath $distPath --workpath $workPath
         Pop-Location
     }
 

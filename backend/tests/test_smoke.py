@@ -375,6 +375,59 @@ def test_memory_lifecycle_extract_approve_and_feed_reply() -> None:
         assert rejected["status"] == "rejected"
 
 
+def test_qq_json_import_job_creates_profile_and_target() -> None:
+    from app.db.database import SessionLocal
+    from app.db.models import ChatTarget, UserProfile, UserProfileVersion
+    from app.main import create_app
+
+    raw_chat = {
+        "messages": [
+            {"sender": "我", "content": "哈哈那你先躺会儿，不急着回我。", "time": "2026-05-01 20:00:00"},
+            {"sender": "小夏", "content": "今天真的累死了，不太想说话。", "time": "2026-05-01 20:01:00"},
+            {"sender": "我", "content": "懂，今天是被工作吸干电量了。", "time": "2026-05-01 20:02:00"},
+            {"sender": "小夏", "content": "嗯嗯，我先缓一下。", "time": "2026-05-01 20:03:00"},
+        ]
+    }
+
+    with TestClient(create_app()) as client:
+        start_response = client.post(
+            "/import/qq-json",
+            json={"filename": "qq.json", "raw_json": raw_chat, "me_speakers": ["我"], "target_name": "小夏"},
+        )
+        assert start_response.status_code == 200
+        job_id = start_response.json()["job_id"]
+
+        final_body = None
+        for _ in range(10):
+            job_response = client.get(f"/jobs/{job_id}")
+            assert job_response.status_code == 200
+            final_body = job_response.json()
+            if final_body["status"] in {"success", "failed"}:
+                break
+            time.sleep(0.05)
+
+        assert final_body is not None
+        assert final_body["status"] == "success", final_body.get("error_message")
+        result = json.loads(final_body["result"])
+        assert result["message_count"] == 4
+        assert result["user_message_count"] == 2
+        assert result["target_message_count"] == 2
+        assert result["raw_path"].startswith("imports/")
+        assert result["profile"]["source_type"] == "chat_import"
+        assert result["target"]["name"] == "小夏"
+        assert "不要连续追问" in result["target"]["taboos"]
+
+        with SessionLocal() as db:
+            profile = db.get(UserProfile, result["profile"]["id"])
+            target = db.get(ChatTarget, result["target"]["id"])
+            assert profile is not None
+            assert profile.is_default is True
+            assert target is not None
+            assert target.strategy_guideline is not None
+            versions = db.query(UserProfileVersion).filter(UserProfileVersion.profile_id == profile.id).all()
+            assert any(version.merge_reason == "chat_import_create" and version.source_job_id == job_id for version in versions)
+
+
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
     for block in response_text.split("\n\n"):
         if f"event: {event_name}" not in block:

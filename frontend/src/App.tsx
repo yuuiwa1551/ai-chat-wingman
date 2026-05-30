@@ -15,6 +15,7 @@ import {
 } from './api';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { MemoryReviewPanel } from './components/MemoryReviewPanel';
+import { QQImportPanel } from './components/QQImportPanel';
 import { ReplyGenerator } from './components/ReplyGenerator';
 import { StyleTestPanel } from './components/StyleTestPanel';
 import { TargetManager } from './components/TargetManager';
@@ -75,7 +76,7 @@ export function App() {
     <main className="window-shell">
       <header className="titlebar">
         <div>
-          <p className="eyebrow">Phase 7 Memory System</p>
+          <p className="eyebrow">Phase 6 QQ Import</p>
           <h1>AI Chat Wingman</h1>
         </div>
         <span className="status-pill">{providers.length || 0} Providers</span>
@@ -92,6 +93,18 @@ export function App() {
       ) : null}
 
       {onboardingStatus?.has_default_profile ? <TargetManager targets={targets} onTargetsChange={setTargets} /> : null}
+
+      {onboardingStatus?.has_default_profile ? (
+        <QQImportPanel
+          targets={targets}
+          onTargetImported={(target) => {
+            setTargets((current) => {
+              const exists = current.some((item) => item.id === target.id);
+              return exists ? current.map((item) => (item.id === target.id ? target : item)) : [target, ...current];
+            });
+          }}
+        />
+      ) : null}
 
       {onboardingStatus?.has_default_profile ? <MemoryReviewPanel targets={targets} /> : null}
 

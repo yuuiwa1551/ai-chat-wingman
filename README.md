@@ -43,7 +43,7 @@ AI 帮聊助手：Windows 桌面悬浮窗优先，使用 PyWebView + React + Vit
 
 ```powershell
 Set-Location backend
-uv run pytest -v
+uv run python -m pytest -v
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
@@ -70,6 +70,7 @@ Useful endpoints:
 - `POST /memories/{memory_id}/approve`
 - `POST /memories/{memory_id}/reject`
 - `POST /multimodal/parse-chat-screenshot`
+- `POST /import/qq-json`
 
 Phase 4 reply generation is a streaming POST endpoint. It creates a `chat_sessions` row when needed, saves the generation in `conversations`, writes the aggregated LLM metadata to `llm_calls`, and accepts the final user choice with `/reply/{conversation_id}/select`.
 
@@ -80,6 +81,8 @@ Phase 3 target profiles store relationship, preferences, taboos, and reply strat
 Phase 5 screenshot parsing accepts a local screenshot payload, stores the image under the app data screenshot directory, calls the `screenshot_parse` multimodal route, and returns editable structured chat text for reply generation.
 
 Phase 7 memory system v1 extracts reusable long-term memories after reply generation through the `memory_extraction` route and stores them as `pending`. Memories never auto-pollute long-term context: only after a user approves them do they feed into later reply generation. Memories are scoped to a chat target and are listable, editable, approvable, rejectable, and deletable.
+
+Phase 6 QQ JSON import is a background job. The frontend reads a user-selected local JSON file, posts it to `/import/qq-json` with the sender aliases that count as “me”, then polls `/jobs/{id}`. The job stores the raw file under the app data imports directory, parses messages through the QQ importer, creates a `chat_import` default user profile, and creates or updates the selected chat target profile.
 
 ### Frontend
 
@@ -108,7 +111,7 @@ Set-Location frontend
 npm run build
 
 Set-Location ..\backend
-uv run --extra desktop --extra build pyinstaller ..\build\wingman.spec --noconfirm
+uv run --extra desktop --extra build python -m PyInstaller ..\build\wingman.spec --noconfirm
 ```
 
 Run the full packaged-app verification before calling the desktop build good. This builds the frontend, packages the exe, starts it on a fixed local port, and checks `/healthz` plus onboarding status from outside the process:
@@ -121,7 +124,7 @@ Core validation before pushing a phase branch:
 
 ```powershell
 Set-Location backend
-uv run pytest -v
+uv run python -m pytest -v
 
 Set-Location ..\frontend
 npm run build

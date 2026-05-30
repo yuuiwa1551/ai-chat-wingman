@@ -483,6 +483,25 @@ input[type="range"] {
   background: rgba(252, 255, 253, 0.92);
 }
 
+.import-panel {
+  border-color: #c9d3c2;
+  background: rgba(255, 254, 250, 0.9);
+}
+
+.import-result {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d6ddcf;
+  border-radius: 8px;
+  background: #f7faf2;
+  color: #35493b;
+}
+
+.import-result p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
 .memory-target-select {
   max-width: 240px;
 }
