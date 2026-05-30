@@ -42,6 +42,7 @@ AI 帮聊助手：Windows 桌面悬浮窗优先，使用 PyWebView + React + Vit
 Quick local debug from the repo root:
 
 ```powershell
+.\start_app.bat
 .\dev.ps1
 .\dev.ps1 desktop
 .\dev.ps1 test
