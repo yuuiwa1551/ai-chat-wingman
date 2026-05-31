@@ -24,7 +24,7 @@ from app.db.models import (
     UserProfileVersion,
 )
 from app.jobs.runner import update_job
-from app.paths import APP_DATA_DIR, BACKUPS_DIR, DB_DIR, IMPORTS_DIR, LOGS_DIR, SCREENSHOTS_DIR, ensure_app_dirs
+from app.paths import APP_DATA_DIR, BACKUPS_DIR, DB_DIR, IMPORTS_DIR, LOGS_DIR, SCREENSHOTS_DIR, SECRET_KEY_PATH, ensure_app_dirs
 
 PURGE_CONFIRM_TEXT = "DELETE"
 
@@ -117,6 +117,12 @@ def purge_all_data(db: Session, include_settings: bool = False) -> dict[str, obj
     removed_files = 0
     for directory in (SCREENSHOTS_DIR, IMPORTS_DIR, BACKUPS_DIR):
         removed_files += _clear_directory(directory)
+    if include_settings and SECRET_KEY_PATH.exists():
+        try:
+            SECRET_KEY_PATH.unlink()
+            removed_files += 1
+        except OSError:
+            pass
     ensure_app_dirs()
     return {
         "deleted_rows": deleted_rows,

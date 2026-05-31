@@ -7,6 +7,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.db.models import AppSetting
+from app.security import secret_box
+
+PROVIDERS_KEY = "llm.providers"
 
 
 def utc_now() -> str:
@@ -33,3 +36,28 @@ def set_json_setting(db: Session, key: str, value: Any, is_secret: bool = False)
     db.commit()
     db.refresh(setting)
     return setting
+
+
+def get_providers(db: Session) -> list[dict[str, Any]]:
+    """Return provider configs with ``api_key`` decrypted for runtime use."""
+    providers = get_json_setting(db, PROVIDERS_KEY, [])
+    decrypted: list[dict[str, Any]] = []
+    for provider in providers:
+        item = dict(provider)
+        api_key = item.get("api_key")
+        if isinstance(api_key, str) and secret_box.is_encrypted(api_key):
+            item["api_key"] = secret_box.decrypt(api_key)
+        decrypted.append(item)
+    return decrypted
+
+
+def set_providers(db: Session, providers: list[dict[str, Any]]) -> None:
+    """Persist provider configs, encrypting any plain ``api_key`` at rest."""
+    stored: list[dict[str, Any]] = []
+    for provider in providers:
+        item = dict(provider)
+        api_key = item.get("api_key")
+        if isinstance(api_key, str) and api_key:
+            item["api_key"] = secret_box.encrypt(api_key)
+        stored.append(item)
+    set_json_setting(db, PROVIDERS_KEY, stored, is_secret=True)

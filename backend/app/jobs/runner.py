@@ -116,3 +116,17 @@ async def run_organize_target_job(job_id: int, payload: dict[str, Any]) -> None:
     except Exception as exc:
         with SessionLocal() as db:
             update_job(db, job_id, status="failed", progress=1.0, error_message=str(exc))
+
+
+async def run_style_analysis_job(job_id: int, payload: dict[str, Any]) -> None:
+    try:
+        from app.services.style_test_service import analyze_style_test_session
+
+        with SessionLocal() as db:
+            update_job(db, job_id, status="running", progress=0.2)
+            analysis, profile, llm_call = await analyze_style_test_session(db, int(payload["session_id"]))
+            job_result = {"analysis": analysis, "profile": profile.to_dict(), "llm_call_id": llm_call.id}
+            update_job(db, job_id, status="success", progress=1.0, result=json.dumps(job_result, ensure_ascii=False))
+    except Exception as exc:
+        with SessionLocal() as db:
+            update_job(db, job_id, status="failed", progress=1.0, error_message=str(exc))

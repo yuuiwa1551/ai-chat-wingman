@@ -7,7 +7,7 @@ from app.llm.base import LLMMessage, LLMProvider
 from app.llm.call_logger import log_async_call
 from app.llm.mock_provider import MockProvider
 from app.llm.openai_compatible_provider import OpenAICompatibleProvider
-from app.settings_store import get_json_setting
+from app.settings_store import get_json_setting, get_providers
 
 
 def provider_from_config(config: dict[str, object]) -> LLMProvider:
@@ -31,7 +31,7 @@ def provider_from_config(config: dict[str, object]) -> LLMProvider:
 
 
 def provider_for_task(db: Session, task: str) -> LLMProvider:
-    providers = [provider for provider in get_json_setting(db, "llm.providers", []) if provider.get("enabled", True)]
+    providers = [provider for provider in get_providers(db) if provider.get("enabled", True)]
     task_routing = get_json_setting(db, "llm.task_routing", DEFAULT_TASK_ROUTING)
     route = task_routing.get(task)
 

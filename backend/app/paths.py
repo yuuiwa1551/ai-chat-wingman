@@ -30,6 +30,7 @@ SCREENSHOTS_DIR = APP_DATA_DIR / "screenshots"
 IMPORTS_DIR = APP_DATA_DIR / "imports"
 LOGS_DIR = APP_DATA_DIR / "logs"
 BACKUPS_DIR = APP_DATA_DIR / "backups"
+SECRET_KEY_PATH = APP_DATA_DIR / "secret.key"
 
 
 def ensure_app_dirs() -> None:

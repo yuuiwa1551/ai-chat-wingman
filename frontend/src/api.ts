@@ -459,12 +459,22 @@ export async function sendStyleTestMessage(
   return done;
 }
 
-export async function analyzeStyleTestSession(sessionId: number): Promise<{
+export async function analyzeStyleTestSession(
+  sessionId: number,
+  options: PollJobOptions = {},
+): Promise<{
   analysis: StyleTestAnalysis;
   profile: UserProfile;
   llm_call_id: number;
 }> {
-  return requestJson(`/style-test/sessions/${sessionId}/analysis`, { method: 'POST' });
+  const started = await requestJson<{ job_id: number; status: string }>(
+    `/style-test/sessions/${sessionId}/analysis`,
+    { method: 'POST' },
+  );
+  return pollJobResult<{ analysis: StyleTestAnalysis; profile: UserProfile; llm_call_id: number }>(
+    started.job_id,
+    options,
+  );
 }
 
 export async function listTargets(): Promise<ChatTarget[]> {

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import DEFAULT_TASK_ROUTING
 from app.db.database import get_db
 from app.llm.router import list_provider_models, test_provider
-from app.settings_store import get_json_setting, set_json_setting
+from app.settings_store import get_json_setting, get_providers, set_json_setting, set_providers
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -33,14 +33,14 @@ def _mask_provider(provider: dict[str, object]) -> dict[str, object]:
 @router.get("")
 def read_settings(db: Session = Depends(get_db)) -> dict[str, object]:
     return {
-        "llm.providers": [_mask_provider(item) for item in get_json_setting(db, "llm.providers", [])],
+        "llm.providers": [_mask_provider(item) for item in get_providers(db)],
         "llm.task_routing": get_json_setting(db, "llm.task_routing", DEFAULT_TASK_ROUTING),
     }
 
 
 @router.get("/llm/providers")
 def list_providers(db: Session = Depends(get_db)) -> dict[str, list[dict[str, object]]]:
-    providers = get_json_setting(db, "llm.providers", [])
+    providers = get_providers(db)
     return {"providers": [_mask_provider(provider) for provider in providers]}
 
 
@@ -49,20 +49,20 @@ def upsert_provider(provider_id: str, payload: LLMProviderConfig, db: Session = 
     if provider_id != payload.id:
         raise HTTPException(status_code=400, detail="Provider id mismatch")
 
-    providers = get_json_setting(db, "llm.providers", [])
+    providers = get_providers(db)
     existing = next((provider for provider in providers if provider.get("id") == provider_id), None)
     provider_data = payload.model_dump()
     if existing is not None and provider_data.get("api_key") in (None, "", "***") and existing.get("api_key"):
         provider_data["api_key"] = existing.get("api_key")
     next_providers = [provider for provider in providers if provider.get("id") != provider_id]
     next_providers.append(provider_data)
-    set_json_setting(db, "llm.providers", next_providers, is_secret=True)
+    set_providers(db, next_providers)
     return {"provider": _mask_provider(provider_data)}
 
 
 @router.post("/llm/providers/{provider_id}/test")
 async def test_llm_provider(provider_id: str, db: Session = Depends(get_db)) -> dict[str, object]:
-    providers = get_json_setting(db, "llm.providers", [])
+    providers = get_providers(db)
     provider = next((item for item in providers if item.get("id") == provider_id), None)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -74,7 +74,7 @@ async def test_llm_provider(provider_id: str, db: Session = Depends(get_db)) -> 
 
 @router.get("/llm/providers/{provider_id}/models")
 async def read_provider_models(provider_id: str, db: Session = Depends(get_db)) -> dict[str, object]:
-    providers = get_json_setting(db, "llm.providers", [])
+    providers = get_providers(db)
     provider = next((item for item in providers if item.get("id") == provider_id), None)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")

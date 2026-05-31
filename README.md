@@ -15,7 +15,7 @@
 
 最短路径：
 
-1. 下载 Windows preview 包：[v0.1.3](https://github.com/yuuiwa1551/ai-chat-wingman/releases/tag/v0.1.3)。
+1. 下载 Windows preview 包：[v0.1.4](https://github.com/yuuiwa1551/ai-chat-wingman/releases/tag/v0.1.4)。
 2. 运行 `ai-chat-wingman.exe`。
 3. 首次页点击“试用示例聊天”。
 4. 在主工作台选择场景，例如“对方累了”“推进邀约”。
@@ -197,6 +197,8 @@ $env:AI_CHAT_WINGMAN_DATA_DIR = "C:\Temp\AIChatWingmanData"
 - [docs/release_notes_v0.1.1.md](docs/release_notes_v0.1.1.md): v0.1.1 发布说明。
 - [docs/release_notes_v0.1.2.md](docs/release_notes_v0.1.2.md): v0.1.2 发布说明草稿。
 - [docs/release_notes_v0.1.3.md](docs/release_notes_v0.1.3.md): v0.1.3 发布说明。
+- [docs/release_notes_v0.1.4.md](docs/release_notes_v0.1.4.md): v0.1.4 发布说明。
+- [docs/v0.1.4_followup_plan.md](docs/v0.1.4_followup_plan.md): 风格分析 jobs 化与密钥本地加密计划。
 - [docs/codereview_jobs_followup_plan.md](docs/codereview_jobs_followup_plan.md): 代码审查后续（jobs 化、purge）执行计划。
 - [docs/post_v0.1.1_iteration_plan.md](docs/post_v0.1.1_iteration_plan.md): v0.1.1 之后的迭代计划。
 - [docs/frontend_uiux_redesign_plan.md](docs/frontend_uiux_redesign_plan.md): 当前 UI/UX 重做计划。

@@ -105,8 +105,25 @@ def test_provider_update_preserves_existing_secret_when_masked_or_empty() -> Non
             assert setting is not None
             providers = json.loads(setting.value or "[]")
     remote = next(provider for provider in providers if provider["id"] == "remote")
-    assert remote["api_key"] == "real-secret"
+    # API key is encrypted at rest, never stored as plain text.
+    assert remote["api_key"] != "real-secret"
+    assert remote["api_key"].startswith("enc:v1:")
+    from app.security import secret_box
+
+    assert secret_box.decrypt(remote["api_key"]) == "real-secret"
     assert remote["default_model"] == "chat-b"
+
+
+def test_secret_box_roundtrip_and_legacy_plaintext() -> None:
+    from app.security import secret_box
+
+    cipher = secret_box.encrypt("super-secret-key")
+    assert cipher.startswith("enc:v1:")
+    assert secret_box.encrypt(cipher) == cipher  # idempotent on already-encrypted
+    assert secret_box.decrypt(cipher) == "super-secret-key"
+    # Legacy plain-text values pass through decrypt unchanged.
+    assert secret_box.decrypt("plain-legacy-key") == "plain-legacy-key"
+    assert secret_box.encrypt("") == ""
 
 
 def test_provider_test_surfaces_configuration_errors() -> None:
@@ -260,7 +277,17 @@ def test_style_test_session_message_and_analysis_updates_profile() -> None:
 
         analysis_response = client.post(f"/style-test/sessions/{session_id}/analysis")
         assert analysis_response.status_code == 200
-        body = analysis_response.json()
+        analysis_job_id = analysis_response.json()["job_id"]
+
+        body = None
+        for _ in range(40):
+            job = client.get(f"/jobs/{analysis_job_id}").json()
+            if job["status"] in {"success", "failed"}:
+                if job["status"] == "success":
+                    body = json.loads(job["result"])
+                break
+            time.sleep(0.05)
+        assert body is not None
         assert body["analysis"]["style_summary"]
         assert body["profile"]["source_type"] == "style_test"
         assert body["profile"]["current_version"] >= 2

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.sse import encode_sse, sse_response
 from app.db.database import get_db
+from app.jobs.runner import create_job, run_style_analysis_job
 from app.services.style_test_service import (
-    analyze_style_test_session,
     create_style_test_session,
     get_style_test_session,
     list_style_test_messages,
@@ -73,9 +73,15 @@ async def send_message(session_id: int, payload: SendStyleTestMessageRequest, db
 
 
 @router.post("/sessions/{session_id}/analysis")
-async def analyze_session(session_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
+def analyze_session(
+    session_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict[str, int | str]:
     try:
-        analysis, profile, llm_call = await analyze_style_test_session(db, session_id)
+        get_style_test_session(db, session_id)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"analysis": analysis, "profile": profile.to_dict(), "llm_call_id": llm_call.id}
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    job = create_job(db, job_type="style_analysis", payload={"session_id": session_id})
+    background_tasks.add_task(run_style_analysis_job, job.id, {"session_id": session_id})
+    return {"job_id": job.id, "status": job.status}
