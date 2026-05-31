@@ -3,6 +3,8 @@ param(
     [ValidateSet("web", "desktop", "backend", "frontend", "test", "build", "verify")]
     [string]$Mode = "web",
 
+    [switch]$Silent,
+
     [switch]$Help
 )
 
@@ -36,21 +38,28 @@ function Start-DevWindow {
     param(
         [string]$Title,
         [string]$WorkingDirectory,
-        [string]$Command
+        [string]$Command,
+        [switch]$Hidden
     )
 
     $QuotedDirectory = ConvertTo-PowerShellLiteral $WorkingDirectory
     $QuotedTitle = ConvertTo-PowerShellLiteral $Title
     $WindowCommand = "Set-Location $QuotedDirectory; `$Host.UI.RawUI.WindowTitle = $QuotedTitle; $Command"
 
-    Start-Process -FilePath "powershell.exe" -ArgumentList @(
-        "-NoExit",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        $WindowCommand
-    )
+    $Arguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $WindowCommand)
+    if (-not $Hidden) {
+        $Arguments = @("-NoExit") + $Arguments
+    }
+
+    $StartOptions = @{
+        FilePath     = "powershell.exe"
+        ArgumentList = $Arguments
+    }
+    if ($Hidden) {
+        $StartOptions.WindowStyle = "Hidden"
+    }
+
+    Start-Process @StartOptions
 }
 
 function Invoke-InDirectory {
@@ -68,6 +77,26 @@ function Invoke-InDirectory {
     }
 }
 
+function Test-TcpPortInUse {
+    param([int]$Port)
+
+    $Client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $Connect = $Client.BeginConnect("127.0.0.1", $Port, $null, $null)
+        if (-not $Connect.AsyncWaitHandle.WaitOne(200)) {
+            return $false
+        }
+        $Client.EndConnect($Connect)
+        return $true
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $Client.Close()
+    }
+}
+
 if ($Help) {
     Show-Help
     exit 0
@@ -75,14 +104,18 @@ if ($Help) {
 
 switch ($Mode) {
     "web" {
-        Start-DevWindow "AI Chat Wingman Backend" $BackendDir "uv run uvicorn app.main:app --reload --port 8000"
-        Start-DevWindow "AI Chat Wingman Frontend" $FrontendDir "npm run dev"
+        Start-DevWindow "AI Chat Wingman Backend" $BackendDir "uv run uvicorn app.main:app --reload --port 8000" -Hidden:$Silent
+        Start-DevWindow "AI Chat Wingman Frontend" $FrontendDir "npm run dev" -Hidden:$Silent
         Write-Host "Started backend and frontend terminals."
         Write-Host "Open http://127.0.0.1:5173"
     }
     "desktop" {
-        Start-DevWindow "AI Chat Wingman Frontend" $FrontendDir "npm run dev"
-        Start-DevWindow "AI Chat Wingman Desktop" $BackendDir "uv run --extra desktop python -m app.desktop.launcher --dev-server http://127.0.0.1:5173"
+        if (Test-TcpPortInUse 5173) {
+            Write-Error "Port 5173 is already in use. Close the old AI Chat Wingman/Vite window first, then run start_app.bat again."
+            exit 1
+        }
+        Start-DevWindow "AI Chat Wingman Frontend" $FrontendDir "npm run dev" -Hidden:$Silent
+        Start-DevWindow "AI Chat Wingman Desktop" $BackendDir "uv run --extra desktop python -m app.desktop.launcher --dev-server http://127.0.0.1:5173" -Hidden:$Silent
         Write-Host "Started Vite and desktop-shell terminals."
     }
     "backend" {

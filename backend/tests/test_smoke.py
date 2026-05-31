@@ -28,6 +28,21 @@ def test_health_and_demo_sse() -> None:
         assert "event: done" in response.text
 
 
+def test_dev_server_cors_allows_vite_origin() -> None:
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        response = client.options(
+            "/settings/llm/providers",
+            headers={
+                "Origin": "http://127.0.0.1:5173",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5173"
+
+
 def test_mock_provider() -> None:
     import asyncio
 
@@ -89,9 +104,29 @@ def test_provider_update_preserves_existing_secret_when_masked_or_empty() -> Non
             setting = db.get(AppSetting, "llm.providers")
             assert setting is not None
             providers = json.loads(setting.value or "[]")
-        remote = next(provider for provider in providers if provider["id"] == "remote")
-        assert remote["api_key"] == "real-secret"
-        assert remote["default_model"] == "chat-b"
+    remote = next(provider for provider in providers if provider["id"] == "remote")
+    assert remote["api_key"] == "real-secret"
+    assert remote["default_model"] == "chat-b"
+
+
+def test_provider_test_surfaces_configuration_errors() -> None:
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        payload = {
+            "id": "remote",
+            "type": "openai_compatible",
+            "base_url": "",
+            "api_key": "secret",
+            "default_model": "chat-a",
+            "enabled": True,
+        }
+        assert client.put("/settings/llm/providers/remote", json=payload).status_code == 200
+
+        response = client.post("/settings/llm/providers/remote/test")
+        assert response.status_code == 502
+        assert "Provider test failed" in response.json()["detail"]
+        assert "requires base_url" in response.json()["detail"]
 
 
 def test_demo_job_reaches_success() -> None:

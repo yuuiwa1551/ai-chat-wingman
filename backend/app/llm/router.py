@@ -45,10 +45,13 @@ def provider_for_task(db: Session, task: str) -> LLMProvider:
 
 async def test_provider(db: Session, provider_config: dict[str, object]) -> dict[str, object]:
     provider = provider_from_config(provider_config)
-    messages = [LLMMessage(role="user", content="ping")]
+    messages = [
+        LLMMessage(role="system", content="You are validating a provider connection. Reply with only OK."),
+        LLMMessage(role="user", content="请只回复 OK"),
+    ]
 
     async def run_call():
-        return await provider.complete(messages)
+        return await provider.complete(messages, max_tokens=16, temperature=0)
 
     response, llm_call = await log_async_call(
         db=db,

@@ -14,6 +14,8 @@ interface ProviderSettingsPanelProps {
   providerFeedback: ProviderFeedback;
   hasStoredApiKey: boolean;
   streamText: string;
+  requireRealProvider?: boolean;
+  hideDiagnostics?: boolean;
   onProviderChange: (provider: LlmProviderConfig) => void;
   onSaveProvider: () => void;
   onListModels: () => void;
@@ -28,6 +30,8 @@ export function ProviderSettingsPanel({
   providerFeedback,
   hasStoredApiKey,
   streamText,
+  requireRealProvider = false,
+  hideDiagnostics = false,
   onProviderChange,
   onSaveProvider,
   onListModels,
@@ -50,16 +54,18 @@ export function ProviderSettingsPanel({
     <section className="settings-layout">
       <div className="settings-card">
         <div className="section-heading">
-          <h2>Provider 设置</h2>
+          <h2>{requireRealProvider ? '连接真实模型' : 'Provider 设置'}</h2>
           <span>
             {providersCount} 个真实 Provider · {apiBaseUrl}
           </span>
         </div>
         <div className={`provider-mode-callout ${providersCount ? 'ready' : 'mock'}`}>
-          <strong>{providersCount ? '真实 Provider 可用' : '当前是 Mock 演示模式'}</strong>
+          <strong>{providersCount ? '真实 Provider 可用' : requireRealProvider ? '首次使用必须配置真实 Provider' : '当前是 Mock 演示模式'}</strong>
           <p>
             {providersCount
               ? '生成会优先走已保存的 provider；如果测试失败，请重新检测模型或检查 Base URL。'
+              : requireRealProvider
+                ? '需要先填写 OpenAI-compatible 的 API URL、API Key 和模型名，并通过连通测试后才能导入聊天记录。'
               : 'Mock 只用于跑通界面和流式链路，回复质量不代表真实模型。配置 OpenAI-compatible provider 后再测试真实效果。'}
           </p>
         </div>
@@ -109,12 +115,12 @@ export function ProviderSettingsPanel({
                 onProviderChange({ ...provider, id: nextId, type: nextType, default_model: nextDefaultModel });
               }}
             >
-              <option value="mock">mock</option>
+              {requireRealProvider ? null : <option value="mock">mock</option>}
               <option value="openai_compatible">openai_compatible</option>
             </select>
           </label>
           <label>
-            Base URL
+            API URL
             <input
               placeholder="https://api.openai.com/v1"
               value={provider.base_url || ''}
@@ -154,7 +160,7 @@ export function ProviderSettingsPanel({
         </div>
       </div>
 
-      <div className="settings-card">
+      {hideDiagnostics ? null : <div className="settings-card">
         <div className="section-heading">
           <h2>SSE Demo</h2>
           <span>诊断流式链路</span>
@@ -163,7 +169,7 @@ export function ProviderSettingsPanel({
         <button type="button" onClick={onDemoSse}>
           读取流式响应
         </button>
-      </div>
+      </div>}
     </section>
   );
 }

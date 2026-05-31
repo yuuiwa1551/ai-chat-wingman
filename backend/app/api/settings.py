@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -65,7 +66,10 @@ async def test_llm_provider(provider_id: str, db: Session = Depends(get_db)) -> 
     provider = next((item for item in providers if item.get("id") == provider_id), None)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
-    return await test_provider(db, provider)
+    try:
+        return await test_provider(db, provider)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Provider test failed: {_provider_error_detail(exc)}") from exc
 
 
 @router.get("/llm/providers/{provider_id}/models")
@@ -77,7 +81,7 @@ async def read_provider_models(provider_id: str, db: Session = Depends(get_db)) 
     try:
         models = await list_provider_models(provider)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to list provider models: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Failed to list provider models: {_provider_error_detail(exc)}") from exc
     return {"provider_id": provider_id, "models": models, "default_model": provider.get("default_model")}
 
 
@@ -90,3 +94,12 @@ def get_task_routing(db: Session = Depends(get_db)) -> dict[str, object]:
 def put_task_routing(payload: dict[str, str], db: Session = Depends(get_db)) -> dict[str, object]:
     set_json_setting(db, "llm.task_routing", payload)
     return {"task_routing": payload}
+
+
+def _provider_error_detail(exc: Exception) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        response_text = exc.response.text.strip()
+        if response_text:
+            return f"{exc.response.status_code} {exc.response.reason_phrase}: {response_text[:1000]}"
+        return f"{exc.response.status_code} {exc.response.reason_phrase}"
+    return str(exc)

@@ -14,6 +14,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: windows-desktop-build-${{ github.ref }}
   cancel-in-progress: true
@@ -105,12 +108,17 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $zipPath = "${{ steps.package.outputs.zip_path }}"
           $title = "AI Chat Wingman $tag"
-          $notes = @"
+          $notesFile = "docs\release_notes_$tag.md"
+          if (Test-Path $notesFile) {
+            $notes = Get-Content $notesFile -Raw
+          } else {
+            $notes = @"
           Automated Windows desktop build.
 
           This artifact contains the PyInstaller-packaged desktop executable.
           User data stays local under the configured AI Chat Wingman data directory.
           "@
+          }
 
           $releaseExists = $false
           try {

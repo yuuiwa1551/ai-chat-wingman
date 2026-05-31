@@ -243,7 +243,7 @@ interface SseHandlers {
 
 export function getApiBaseUrl(): string {
   const fromQuery = new URLSearchParams(window.location.search).get('apiBase');
-  return fromQuery || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+  return fromQuery || import.meta.env.VITE_API_BASE_URL || window.location.origin || 'http://127.0.0.1:8000';
 }
 
 const apiBaseUrl = getApiBaseUrl();

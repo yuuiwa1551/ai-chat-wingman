@@ -17,14 +17,21 @@ interface FloatingWorkspaceProps {
   providerCount: number;
   status: string;
   providerSettings: ReactNode;
+  alwaysOnTop: boolean;
   onTargetsChange: (targets: ChatTarget[]) => void;
   onTargetImported: (target: ChatTarget) => void;
+  onToggleAlwaysOnTop: () => void;
+  onMinimizeWindow: () => void;
 }
 
 const navItems: Array<{ id: WorkspacePanel; label: string; mark: string }> = [
   { id: 'reply', label: '回复', mark: '聊' },
   { id: 'targets', label: '对象', mark: '人' },
+  { id: 'import', label: '导入', mark: '导' },
   { id: 'memory', label: '记忆', mark: '记' },
+  { id: 'history', label: '历史', mark: '历' },
+  { id: 'style', label: '校准', mark: '校' },
+  { id: 'data', label: '数据', mark: '数' },
 ];
 
 export function FloatingWorkspace({
@@ -32,8 +39,11 @@ export function FloatingWorkspace({
   providerCount,
   status,
   providerSettings,
+  alwaysOnTop,
   onTargetsChange,
   onTargetImported,
+  onToggleAlwaysOnTop,
+  onMinimizeWindow,
 }: FloatingWorkspaceProps) {
   const [activePanel, setActivePanel] = useState<WorkspacePanel>('reply');
   const [activeTargetId, setActiveTargetId] = useState<number | null>(targets[0]?.id ?? null);
@@ -63,7 +73,12 @@ export function FloatingWorkspace({
           <button type="button" className="secondary" onClick={() => setActivePanel('settings')}>
             设置
           </button>
-          <button type="button">收起窗口</button>
+          <button type="button" className="secondary" onClick={onToggleAlwaysOnTop}>
+            {alwaysOnTop ? '取消置顶' : '钉在最前'}
+          </button>
+          <button type="button" onClick={onMinimizeWindow}>
+            最小化
+          </button>
         </div>
       </header>
 
@@ -124,7 +139,15 @@ interface TargetSidebarProps {
 }
 
 function TargetSidebar({ targets, activeTargetId, onActiveTargetChange, onCreateTarget }: TargetSidebarProps) {
+  const [query, setQuery] = useState('');
   const activeTarget = targets.find((target) => target.id === activeTargetId) || targets[0] || null;
+  const filteredTargets = targets.filter((target) => {
+    const haystack = [target.name, target.relationship, target.style_summary, target.preferences, target.taboos, target.strategy_guideline]
+      .filter(Boolean)
+      .join('\n')
+      .toLowerCase();
+    return haystack.includes(query.trim().toLowerCase());
+  });
   const targetRules = buildTargetRules(activeTarget);
   const targetPromptSummary = buildTargetPromptSummary(activeTarget);
 
@@ -136,11 +159,12 @@ function TargetSidebar({ targets, activeTargetId, onActiveTargetChange, onCreate
           新建
         </button>
       </div>
-      <input className="target-search" placeholder="搜索对象或标签" readOnly />
+      <input className="target-search" placeholder="搜索对象或标签" value={query} onChange={(event) => setQuery(event.target.value)} />
 
       <div className="target-sidebar-list">
         {targets.length ? null : <p className="hint">暂无对象，可先手动填写对象名称生成回复。</p>}
-        {targets.map((target) => (
+        {targets.length && !filteredTargets.length ? <p className="hint">没有匹配的对象。</p> : null}
+        {filteredTargets.map((target) => (
           <button
             type="button"
             key={target.id}

@@ -58,6 +58,20 @@ def wait_for_health(
     raise RuntimeError(f"FastAPI server did not become ready: {last_error}")
 
 
+def wait_for_dev_server(dev_server_url: str, timeout_seconds: float = 30.0) -> None:
+    deadline = time.time() + timeout_seconds
+    last_error: Exception | None = None
+    while time.time() < deadline:
+        try:
+            with urlopen(dev_server_url, timeout=0.5) as response:
+                if response.status == 200:
+                    return
+        except (TimeoutError, URLError) as exc:
+            last_error = exc
+        time.sleep(0.1)
+    raise RuntimeError(f"Vite dev server did not become ready at {dev_server_url}: {last_error}")
+
+
 def start_api_server(port: int) -> tuple[threading.Thread, queue.Queue[str]]:
     errors: queue.Queue[str] = queue.Queue(maxsize=1)
 
@@ -102,6 +116,8 @@ def run_desktop(dev_server_url: str | None = None, api_port: int | None = None) 
     api_base_url = f"http://127.0.0.1:{port}"
     server_thread, errors = start_api_server(port)
     wait_for_health(api_base_url, server_thread, errors)
+    if dev_server_url:
+        wait_for_dev_server(dev_server_url)
     start_window(build_window_url(api_base_url, dev_server_url))
 
 

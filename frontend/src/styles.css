@@ -23,13 +23,22 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
-  min-width: 360px;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   background:
     radial-gradient(circle at top left, rgba(45, 122, 104, 0.14), transparent 32rem),
     linear-gradient(135deg, #f9fbf9 0%, #e7ece8 100%);
+  overflow-x: hidden;
+}
+
+#root {
+  min-width: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
@@ -91,9 +100,46 @@ h3 {
 }
 
 .window-shell {
-  width: min(100vw, 1220px);
+  width: 100%;
   min-height: 100vh;
   margin: 0 auto;
+  overflow-x: hidden;
+}
+
+.boot-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.boot-panel {
+  width: min(100%, 460px);
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: 0 18px 42px rgba(21, 33, 27, 0.13);
+}
+
+.boot-panel h1 {
+  margin-bottom: 8px;
+  font-size: 22px;
+}
+
+.boot-panel p {
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.boot-panel pre {
+  white-space: pre-wrap;
+  margin: 16px 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--color-muted-surface);
+  color: var(--color-danger);
+  font-size: 12px;
 }
 
 .workspace-shell {
@@ -102,10 +148,7 @@ h3 {
   height: 100vh;
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid var(--color-border);
-  border-right: 1px solid var(--color-border);
   background: var(--color-bg);
-  box-shadow: 0 18px 42px rgba(21, 33, 27, 0.13);
 }
 
 .workspace-topbar {
@@ -954,15 +997,12 @@ label {
 }
 
 .onboarding-shell {
-  width: min(100vw, 1040px);
+  width: 100%;
   min-height: 100vh;
-  margin: 0 auto;
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
   background: var(--color-bg);
-  border-left: 1px solid var(--color-border);
-  border-right: 1px solid var(--color-border);
-  box-shadow: 0 18px 42px rgba(21, 33, 27, 0.13);
+  overflow-x: hidden;
 }
 
 .onboarding-side {
@@ -1168,6 +1208,21 @@ label {
 .onboarding-actions span {
   color: var(--color-muted);
   font-size: 12px;
+}
+
+.onboarding-actions.locked {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.onboarding-provider-panel {
+  margin-top: 20px;
+}
+
+.onboarding-provider-panel .settings-layout {
+  grid-template-columns: 1fr;
 }
 
 .privacy-note {

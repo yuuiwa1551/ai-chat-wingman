@@ -19,11 +19,11 @@ import { ProviderSettingsPanel } from './components/ProviderSettingsPanel';
 import type { ProviderFeedback } from './components/ProviderSettingsPanel';
 
 const defaultProvider: LlmProviderConfig = {
-  id: 'local-mock',
-  type: 'mock',
+  id: 'openai-compatible',
+  type: 'openai_compatible',
   base_url: '',
   api_key: '',
-  default_model: 'mock-chat',
+  default_model: 'gpt-4o-mini',
   enabled: true,
 };
 
@@ -40,31 +40,53 @@ export function App() {
     message: '当前可以先用 Mock 跑通流程；配置 OpenAI-compatible provider 后再验证真实回复质量。',
   });
   const [streamText, setStreamText] = useState('');
+  const [bootFinished, setBootFinished] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
+  const [providerConnectivityOk, setProviderConnectivityOk] = useState(false);
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
 
   useEffect(() => {
-    Promise.all([listProviders(), getOnboardingStatus(), getStylePresets(), listTargets()])
-      .then(([items, nextOnboardingStatus, presets, nextTargets]) => {
-        setProviders(items);
-        setOnboardingStatus(nextOnboardingStatus);
-        setStylePresets(presets);
-        setTargets(nextTargets);
-        if (items[0]) {
-          setProvider({ ...defaultProvider, ...items[0], api_key: '' });
-          setProviderModels([items[0].default_model || defaultProvider.default_model]);
-        }
-        const realProviderCount = items.filter((item) => item.type !== 'mock').length;
-        setProviderFeedback(
-          realProviderCount
-            ? { kind: 'success', message: `已加载 ${realProviderCount} 个真实 Provider，可以直接测试连通。` }
-            : { kind: 'warning', message: '当前没有真实 Provider；Mock 只用于演示流程和本地链路。' },
-        );
-      })
-      .catch((error: Error) => {
-        const message = readableError(error, '初始化失败');
-        setStatus(message);
-        setProviderFeedback({ kind: 'error', message });
-      });
+    void loadAppState();
   }, []);
+
+  async function loadAppState() {
+    setBootError(null);
+    setBootFinished(false);
+    setStatus('正在连接本地服务...');
+    try {
+      const [items, nextOnboardingStatus, presets, nextTargets] = await Promise.all([
+        listProviders(),
+        getOnboardingStatus(),
+        getStylePresets(),
+        listTargets(),
+      ]);
+      setProviders(items);
+      setOnboardingStatus(nextOnboardingStatus);
+      setStylePresets(presets);
+      setTargets(nextTargets);
+      const realProviders = items.filter((item) => item.type !== 'mock');
+      const preferredProvider = realProviders[0] || items[0];
+      if (preferredProvider) {
+        setProvider({ ...defaultProvider, ...preferredProvider, api_key: '' });
+        setProviderModels([preferredProvider.default_model || defaultProvider.default_model]);
+      }
+      const realProviderCount = realProviders.length;
+      setProviderFeedback(
+        realProviderCount
+          ? { kind: 'success', message: `已加载 ${realProviderCount} 个真实 Provider，可以直接测试连通。` }
+          : { kind: 'warning', message: '当前没有真实 Provider；Mock 只用于演示流程和本地链路。' },
+      );
+      setStatus('已连接本地服务');
+      setProviderConnectivityOk(false);
+    } catch (error) {
+      const message = readableError(error, '初始化失败');
+      setStatus(message);
+      setBootError(message);
+      setProviderFeedback({ kind: 'error', message });
+    } finally {
+      setBootFinished(true);
+    }
+  }
 
   function upsertTarget(target: ChatTarget) {
     setTargets((current) => {
@@ -80,6 +102,7 @@ export function App() {
     setProviders((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
     setProvider({ ...provider, ...saved, api_key: '' });
     setProviderModels((current) => Array.from(new Set([saved.default_model, ...current].filter(Boolean))));
+    setProviderConnectivityOk(false);
   }
 
   function validateProviderForNetwork(): string | null {
@@ -162,9 +185,10 @@ export function App() {
       const saved = await saveProvider(provider);
       mergeSavedProvider(saved);
       const result = await testProvider(saved.id);
-      const message = `测试通过：${result.text} (#${result.llm_call_id})`;
+      const message = `测试通过：${compactProviderTestText(result.text)} (#${result.llm_call_id})`;
       setStatus(message);
       setProviderFeedback({ kind: 'success', message });
+      setProviderConnectivityOk(true);
     } catch (error) {
       const message = readableError(error, '测试失败');
       setStatus(message);
@@ -183,6 +207,35 @@ export function App() {
     }
   }
 
+  async function handleToggleAlwaysOnTop() {
+    const nextValue = !alwaysOnTop;
+    const api = desktopApi();
+    if (!api?.set_on_top) {
+      setStatus('当前浏览器预览不支持窗口置顶，桌面壳中可用。');
+      return;
+    }
+    try {
+      const result = await api.set_on_top(nextValue);
+      setAlwaysOnTop(Boolean(result?.on_top ?? nextValue));
+      setStatus(nextValue ? '窗口已钉在最前面' : '已取消窗口置顶');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '切换窗口置顶失败');
+    }
+  }
+
+  async function handleMinimizeWindow() {
+    const api = desktopApi();
+    if (!api?.minimize) {
+      setStatus('当前浏览器预览不支持最小化，桌面壳中可用。');
+      return;
+    }
+    try {
+      await api.minimize();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '最小化窗口失败');
+    }
+  }
+
   const realProviderCount = providers.filter((item) => item.type !== 'mock').length;
 
   const providerSettings = (
@@ -193,8 +246,11 @@ export function App() {
       providerFeedback={providerFeedback}
       hasStoredApiKey={hasStoredApiKey}
       streamText={streamText}
+      requireRealProvider={onboardingStatus ? !onboardingStatus.has_default_profile : false}
+      hideDiagnostics={onboardingStatus ? !onboardingStatus.has_default_profile : false}
       onProviderChange={(nextProvider) => {
         setProvider(nextProvider);
+        setProviderConnectivityOk(false);
         if (nextProvider.type === 'mock') {
           setProviderModels(['mock-chat', 'mock-vision']);
           setProviderFeedback({ kind: 'warning', message: '已切换到 Mock；它只验证本地流程，不代表真实回复质量。' });
@@ -209,11 +265,29 @@ export function App() {
     />
   );
 
-  if (onboardingStatus && !onboardingStatus.has_default_profile) {
+  if (!bootFinished || bootError || !onboardingStatus) {
+    return (
+      <main className="window-shell boot-shell">
+        <section className="boot-panel">
+          <h1>AI Chat Wingman</h1>
+          <p>{bootError ? '没有连上本地后端服务。' : '正在连接本地后端服务...'}</p>
+          {bootError ? <pre>{bootError}</pre> : null}
+          <button type="button" onClick={() => void loadAppState()}>
+            重新连接
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (!onboardingStatus.has_default_profile) {
     return (
       <OnboardingWizard
         presets={stylePresets}
         targets={targets}
+        providerSettings={providerSettings}
+        providerReady={providerConnectivityOk}
+        providerStatus={providerFeedback.message}
         onTargetImported={upsertTarget}
         onComplete={(profile) => {
           setOnboardingStatus({ has_default_profile: true, default_profile_id: profile.id });
@@ -231,8 +305,20 @@ export function App() {
       providerSettings={providerSettings}
       onTargetsChange={setTargets}
       onTargetImported={upsertTarget}
+      alwaysOnTop={alwaysOnTop}
+      onToggleAlwaysOnTop={() => void handleToggleAlwaysOnTop()}
+      onMinimizeWindow={() => void handleMinimizeWindow()}
     />
   );
+}
+
+interface DesktopApi {
+  set_on_top?: (enabled: boolean) => Promise<{ on_top: boolean }>;
+  minimize?: () => Promise<{ minimized: boolean }>;
+}
+
+function desktopApi(): DesktopApi | null {
+  return (window as Window & { pywebview?: { api?: DesktopApi } }).pywebview?.api || null;
 }
 
 function readableError(error: unknown, fallback: string): string {
@@ -246,4 +332,9 @@ function readableError(error: unknown, fallback: string): string {
   } catch {
     return rawMessage;
   }
+}
+
+function compactProviderTestText(text: string): string {
+  const compact = text.replace(/\s+/g, ' ').trim() || 'OK';
+  return compact.length > 80 ? `${compact.slice(0, 80)}...` : compact;
 }

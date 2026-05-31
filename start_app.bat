@@ -15,7 +15,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0dev.ps1" desktop
+start "" powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0dev.ps1" desktop -Silent
 if errorlevel 1 (
     echo.
     echo Failed to start AI Chat Wingman.

@@ -24,6 +24,7 @@ frontend/.vite/
 .env
 .env.*
 !.env.example
+key.txt
 *.pem
 *.key
 
@@ -40,3 +41,4 @@ frontend/.vite/
 Thumbs.db
 .vscode/
 .idea/
+.playwright-mcp/

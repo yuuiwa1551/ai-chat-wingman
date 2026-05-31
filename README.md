@@ -195,4 +195,6 @@ $env:AI_CHAT_WINGMAN_DATA_DIR = "C:\Temp\AIChatWingmanData"
 - [docs/business_optimization_phase_plan.md](docs/business_optimization_phase_plan.md): 业务优化 P0-P4 计划。
 - [docs/business_optimization_completion_log.md](docs/business_optimization_completion_log.md): 业务优化 P0-P4 完成记录和 v0.1.1 发布整理。
 - [docs/release_notes_v0.1.1.md](docs/release_notes_v0.1.1.md): v0.1.1 发布说明。
+- [docs/release_notes_v0.1.2.md](docs/release_notes_v0.1.2.md): v0.1.2 发布说明草稿。
+- [docs/post_v0.1.1_iteration_plan.md](docs/post_v0.1.1_iteration_plan.md): v0.1.1 之后的迭代计划。
 - [docs/frontend_uiux_redesign_plan.md](docs/frontend_uiux_redesign_plan.md): 当前 UI/UX 重做计划。
