@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { BackupExportResult, DataSummary, getDataSummary, getJob, purgeAllData, startDataExport } from '../api';
+import {
+  BackupExportResult,
+  DataSummary,
+  getDataSummary,
+  pollJobResult,
+  PurgeResult,
+  purgeAllData,
+  startDataExport,
+} from '../api';
+import { useCancellableJob } from '../hooks/useCancellableJob';
 
 function formatBytes(value: number): string {
   if (value < 1024) {
@@ -11,10 +20,6 @@ function formatBytes(value: number): string {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 export function DataPanel() {
   const [summary, setSummary] = useState<DataSummary | null>(null);
   const [exportResult, setExportResult] = useState<BackupExportResult | null>(null);
@@ -24,6 +29,8 @@ export function DataPanel() {
   const [purgeConfirmText, setPurgeConfirmText] = useState('');
   const [purgeIncludeSettings, setPurgeIncludeSettings] = useState(false);
   const [purging, setPurging] = useState(false);
+  const [purgeReport, setPurgeReport] = useState<PurgeResult | null>(null);
+  const jobOptions = useCancellableJob();
 
   const PURGE_CONFIRM_TEXT = 'DELETE';
 
@@ -47,7 +54,10 @@ export function DataPanel() {
     try {
       const started = await startDataExport();
       setStatus(`备份任务 #${started.job_id} 已提交`);
-      const result = await pollBackupResult(started.job_id);
+      const result = await pollJobResult<BackupExportResult>(
+        started.job_id,
+        jobOptions((job) => setStatus(`备份任务 #${started.job_id}：${job.status} ${(job.progress * 100).toFixed(0)}%`)),
+      );
       setExportResult(result);
       setStatus(`备份完成：${result.backup_path}`);
       await refreshSummary();
@@ -56,24 +66,6 @@ export function DataPanel() {
     } finally {
       setExporting(false);
     }
-  }
-
-  async function pollBackupResult(jobId: number): Promise<BackupExportResult> {
-    for (let attempt = 0; attempt < 80; attempt += 1) {
-      const job = await getJob(jobId);
-      setStatus(`备份任务 #${jobId}：${job.status} ${(job.progress * 100).toFixed(0)}%`);
-      if (job.status === 'success') {
-        if (!job.result) {
-          throw new Error('备份任务完成但没有结果');
-        }
-        return JSON.parse(job.result) as BackupExportResult;
-      }
-      if (job.status === 'failed') {
-        throw new Error(job.error_message || '备份任务失败');
-      }
-      await delay(500);
-    }
-    throw new Error('备份任务超时');
   }
 
   async function handlePurge() {
@@ -86,6 +78,7 @@ export function DataPanel() {
       const result = await purgeAllData(purgeConfirmText, purgeIncludeSettings);
       const rows = Object.values(result.deleted_rows).reduce((sum, count) => sum + count, 0);
       setExportResult(null);
+      setPurgeReport(result);
       setPurgeOpen(false);
       setPurgeConfirmText('');
       setPurgeIncludeSettings(false);
@@ -208,6 +201,29 @@ export function DataPanel() {
               {purging ? '清空中...' : '确认清空'}
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {purgeReport ? (
+        <div className="purge-report">
+          <div className="purge-report-head">
+            <strong>本次清空报告</strong>
+            <span>{purgeReport.include_settings ? '含 Provider 配置' : '保留 Provider 配置'}</span>
+          </div>
+          <ul className="purge-report-rows">
+            {Object.entries(purgeReport.deleted_rows)
+              .filter(([, count]) => count > 0)
+              .map(([table, count]) => (
+                <li key={table}>
+                  <span>{table}</span>
+                  <strong>{count}</strong>
+                </li>
+              ))}
+            <li>
+              <span>本地文件</span>
+              <strong>{purgeReport.removed_files}</strong>
+            </li>
+          </ul>
         </div>
       ) : null}
 

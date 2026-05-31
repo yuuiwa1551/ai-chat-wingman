@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ChatTarget, pollJobResult, QQImportResult, startQQJsonImport } from '../api';
+import { useCancellableJob } from '../hooks/useCancellableJob';
 
 interface QQImportPanelProps {
   targets: ChatTarget[];
@@ -22,14 +23,7 @@ export function QQImportPanel({ targets, onTargetImported, onImportComplete }: Q
   const [status, setStatus] = useState('选择 QQ JSON 后开始导入');
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<QQImportResult | null>(null);
-  const cancelledRef = useRef(false);
-
-  useEffect(() => {
-    cancelledRef.current = false;
-    return () => {
-      cancelledRef.current = true;
-    };
-  }, []);
+  const jobOptions = useCancellableJob();
 
   async function handleImport() {
     if (!file) {
@@ -69,10 +63,10 @@ export function QQImportPanel({ targets, onTargetImported, onImportComplete }: Q
   }
 
   async function pollImportResult(jobId: number): Promise<QQImportResult> {
-    return pollJobResult<QQImportResult>(jobId, {
-      shouldCancel: () => cancelledRef.current,
-      onProgress: (job) => setStatus(`导入任务 #${jobId}：${job.status} ${(job.progress * 100).toFixed(0)}%`),
-    });
+    return pollJobResult<QQImportResult>(
+      jobId,
+      jobOptions((job) => setStatus(`导入任务 #${jobId}：${job.status} ${(job.progress * 100).toFixed(0)}%`)),
+    );
   }
 
   return (

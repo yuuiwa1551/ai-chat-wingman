@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   analyzeStyleTestSession,
   createStyleTestSession,
@@ -8,6 +8,7 @@ import {
   StyleTestSession,
   UserProfile,
 } from '../api';
+import { useCancellableJob } from '../hooks/useCancellableJob';
 
 const targetTypes = ['朋友', '暧昧对象', '同事', '伴侣', '家人'];
 
@@ -28,14 +29,7 @@ export function StyleTestPanel({ onProfileSaved }: StyleTestPanelProps = {}) {
   const [status, setStatus] = useState('等待开始风格测试');
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const cancelledRef = useRef(false);
-
-  useEffect(() => {
-    cancelledRef.current = false;
-    return () => {
-      cancelledRef.current = true;
-    };
-  }, []);
+  const jobOptions = useCancellableJob();
 
   const userTurnCount = messages.filter((message) => message.role === 'user').length;
 
@@ -110,10 +104,10 @@ export function StyleTestPanel({ onProfileSaved }: StyleTestPanelProps = {}) {
     }
     setAnalyzing(true);
     try {
-      const result = await analyzeStyleTestSession(session.id, {
-        shouldCancel: () => cancelledRef.current,
-        onProgress: (job) => setStatus(`AI 分析任务 #${job.id}：${job.status} ${(job.progress * 100).toFixed(0)}%`),
-      });
+      const result = await analyzeStyleTestSession(
+        session.id,
+        jobOptions((job) => setStatus(`AI 分析任务 #${job.id}：${job.status} ${(job.progress * 100).toFixed(0)}%`)),
+      );
       setAnalysis(result.analysis);
       setProfile(result.profile);
       onProfileSaved?.(result.profile);

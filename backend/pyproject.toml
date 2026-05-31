@@ -1,6 +1,6 @@
 [project]
 name = "ai-chat-wingman-backend"
-version = "0.1.4"
+version = "0.1.5"
 description = "FastAPI backend for AI Chat Wingman"
 requires-python = ">=3.11,<3.15"
 dependencies = [

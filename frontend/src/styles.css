@@ -94,6 +94,40 @@ button:disabled {
   min-height: 0;
 }
 
+.purge-report {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-muted-surface);
+  border-radius: 8px;
+  background: #f6faf8;
+  display: grid;
+  gap: 8px;
+}
+
+.purge-report-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  color: #25362f;
+}
+
+.purge-report-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.purge-report-rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
 input,
 select,
 textarea {

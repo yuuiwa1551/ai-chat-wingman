@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ChatTarget, createTarget, deleteTarget, organizeTarget, updateTarget } from '../api';
 import { buildTargetPromptSummary, buildTargetRules } from '../targetInsights';
+import { useCancellableJob } from '../hooks/useCancellableJob';
 
 const emptyDraft = {
   name: '',
@@ -41,14 +42,7 @@ export function TargetManager({ targets, onTargetsChange }: TargetManagerProps) 
   const [saving, setSaving] = useState(false);
   const previewRules = buildTargetRules(draft);
   const previewSummary = buildTargetPromptSummary(draft);
-  const cancelledRef = useRef(false);
-
-  useEffect(() => {
-    cancelledRef.current = false;
-    return () => {
-      cancelledRef.current = true;
-    };
-  }, []);
+  const jobOptions = useCancellableJob();
 
   function replaceTarget(nextTarget: ChatTarget) {
     const exists = targets.some((target) => target.id === nextTarget.id);
@@ -97,10 +91,11 @@ export function TargetManager({ targets, onTargetsChange }: TargetManagerProps) 
     }
     setSaving(true);
     try {
-      const result = await organizeTarget(selectedTarget.id, notes, {
-        shouldCancel: () => cancelledRef.current,
-        onProgress: (job) => setStatus(`AI 整理任务 #${job.id}：${job.status} ${(job.progress * 100).toFixed(0)}%`),
-      });
+      const result = await organizeTarget(
+        selectedTarget.id,
+        notes,
+        jobOptions((job) => setStatus(`AI 整理任务 #${job.id}：${job.status} ${(job.progress * 100).toFixed(0)}%`)),
+      );
       replaceTarget(result.target);
       setStatus(`AI 已整理档案，LLM Call #${result.llm_call_id}`);
     } catch (error) {
