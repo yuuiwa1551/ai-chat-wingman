@@ -15,7 +15,7 @@
 
 最短路径：
 
-1. 下载 Windows preview 包：[v0.1.0](https://github.com/yuuiwa1551/ai-chat-wingman/releases/tag/v0.1.0)。
+1. 下载 Windows preview 包：[v0.1.1](https://github.com/yuuiwa1551/ai-chat-wingman/releases/tag/v0.1.1)。
 2. 运行 `ai-chat-wingman.exe`。
 3. 首次页点击“试用示例聊天”。
 4. 在主工作台选择场景，例如“对方累了”“推进邀约”。
@@ -193,4 +193,6 @@ $env:AI_CHAT_WINGMAN_DATA_DIR = "C:\Temp\AIChatWingmanData"
 - [AGENTS.md](AGENTS.md): Agent / Codex / Copilot 工作规则。
 - [docs/ai_chat_wingman_spec_plan.md](docs/ai_chat_wingman_spec_plan.md): 产品 spec 和 phase plan。
 - [docs/business_optimization_phase_plan.md](docs/business_optimization_phase_plan.md): 业务优化 P0-P4 计划。
+- [docs/business_optimization_completion_log.md](docs/business_optimization_completion_log.md): 业务优化 P0-P4 完成记录和 v0.1.1 发布整理。
+- [docs/release_notes_v0.1.1.md](docs/release_notes_v0.1.1.md): v0.1.1 发布说明。
 - [docs/frontend_uiux_redesign_plan.md](docs/frontend_uiux_redesign_plan.md): 当前 UI/UX 重做计划。
