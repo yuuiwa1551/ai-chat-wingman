@@ -79,3 +79,40 @@ def run_privacy_export_job(job_id: int) -> None:
     except Exception as exc:
         with SessionLocal() as db:
             update_job(db, job_id, status="failed", progress=1.0, error_message=str(exc))
+
+
+async def run_screenshot_parse_job(job_id: int, payload: dict[str, Any]) -> None:
+    try:
+        from app.services.multimodal_service import PARSE_SCREENSHOT_PROMPT_VERSION, parse_chat_screenshot
+
+        with SessionLocal() as db:
+            update_job(db, job_id, status="running", progress=0.2)
+            result, llm_call = await parse_chat_screenshot(
+                db,
+                payload["image_base64"],
+                payload["mime_type"],
+                payload.get("filename"),
+            )
+            job_result = {
+                **result.to_dict(),
+                "llm_call_id": llm_call.id,
+                "prompt_version": PARSE_SCREENSHOT_PROMPT_VERSION,
+            }
+            update_job(db, job_id, status="success", progress=1.0, result=json.dumps(job_result, ensure_ascii=False))
+    except Exception as exc:
+        with SessionLocal() as db:
+            update_job(db, job_id, status="failed", progress=1.0, error_message=str(exc))
+
+
+async def run_organize_target_job(job_id: int, payload: dict[str, Any]) -> None:
+    try:
+        from app.services.target_service import organize_target
+
+        with SessionLocal() as db:
+            update_job(db, job_id, status="running", progress=0.2)
+            target, llm_call = await organize_target(db, int(payload["target_id"]), payload.get("notes"))
+            job_result = {"target": target.to_dict(), "llm_call_id": llm_call.id}
+            update_job(db, job_id, status="success", progress=1.0, result=json.dumps(job_result, ensure_ascii=False))
+    except Exception as exc:
+        with SessionLocal() as db:
+            update_job(db, job_id, status="failed", progress=1.0, error_message=str(exc))

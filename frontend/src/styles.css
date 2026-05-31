@@ -63,9 +63,35 @@ button.secondary {
   color: #25362f;
 }
 
+button.danger {
+  background: #c0392b;
+  color: #fff;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+
+.purge-confirm {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e3b1ab;
+  border-radius: 8px;
+  background: #fcf3f2;
+  display: grid;
+  gap: 10px;
+}
+
+.purge-confirm .purge-include-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.purge-confirm .purge-include-settings input {
+  width: auto;
+  min-height: 0;
 }
 
 input,

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChatTarget, getJob, QQImportResult, startQQJsonImport } from '../api';
+import { useEffect, useRef, useState } from 'react';
+import { ChatTarget, pollJobResult, QQImportResult, startQQJsonImport } from '../api';
 
 interface QQImportPanelProps {
   targets: ChatTarget[];
@@ -14,10 +14,6 @@ function splitAliases(value: string): string[] {
     .filter(Boolean);
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 export function QQImportPanel({ targets, onTargetImported, onImportComplete }: QQImportPanelProps) {
   const [file, setFile] = useState<File | null>(null);
   const [meSpeakers, setMeSpeakers] = useState('我');
@@ -26,6 +22,14 @@ export function QQImportPanel({ targets, onTargetImported, onImportComplete }: Q
   const [status, setStatus] = useState('选择 QQ JSON 后开始导入');
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<QQImportResult | null>(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
 
   async function handleImport() {
     if (!file) {
@@ -65,21 +69,10 @@ export function QQImportPanel({ targets, onTargetImported, onImportComplete }: Q
   }
 
   async function pollImportResult(jobId: number): Promise<QQImportResult> {
-    for (let attempt = 0; attempt < 80; attempt += 1) {
-      const job = await getJob(jobId);
-      setStatus(`导入任务 #${jobId}：${job.status} ${(job.progress * 100).toFixed(0)}%`);
-      if (job.status === 'success') {
-        if (!job.result) {
-          throw new Error('导入任务完成但没有结果');
-        }
-        return JSON.parse(job.result) as QQImportResult;
-      }
-      if (job.status === 'failed') {
-        throw new Error(job.error_message || '导入任务失败');
-      }
-      await delay(500);
-    }
-    throw new Error('导入任务超时');
+    return pollJobResult<QQImportResult>(jobId, {
+      shouldCancel: () => cancelledRef.current,
+      onProgress: (job) => setStatus(`导入任务 #${jobId}：${job.status} ${(job.progress * 100).toFixed(0)}%`),
+    });
   }
 
   return (

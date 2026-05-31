@@ -54,6 +54,14 @@ class ScreenshotParseResult:
         }
 
 
+def validate_screenshot_payload(image_base64: str, mime_type: str) -> None:
+    """Fast-fail validation for the request entrypoint before queuing a job."""
+    _normalize_mime_type(mime_type)
+    image_bytes = _decode_image_base64(image_base64)
+    if len(image_bytes) > MAX_IMAGE_BYTES:
+        raise ValueError("Image must be 5 MB or smaller")
+
+
 async def parse_chat_screenshot(
     db: Session,
     image_base64: str,
@@ -64,7 +72,6 @@ async def parse_chat_screenshot(
     image_bytes = _decode_image_base64(image_base64)
     if len(image_bytes) > MAX_IMAGE_BYTES:
         raise ValueError("Image must be 5 MB or smaller")
-
     stored_image_path = _store_screenshot(image_bytes, clean_mime_type)
     data_url = f"data:{clean_mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
 

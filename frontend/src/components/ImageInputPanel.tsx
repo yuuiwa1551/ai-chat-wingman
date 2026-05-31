@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { parseChatScreenshot, ParsedChatMessage, ParsedSpeaker } from '../api';
 
 const speakerLabels: Record<ParsedSpeaker, string> = {
@@ -27,6 +27,14 @@ export function ImageInputPanel({ onApplyText }: ImageInputPanelProps) {
   const [llmCallId, setLlmCallId] = useState<number | null>(null);
   const [status, setStatus] = useState('等待上传截图');
   const [parsing, setParsing] = useState(false);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
 
   async function handleParse() {
     if (!file) {
@@ -36,7 +44,10 @@ export function ImageInputPanel({ onApplyText }: ImageInputPanelProps) {
     setParsing(true);
     setStatus('正在解析截图...');
     try {
-      const result = await parseChatScreenshot(file);
+      const result = await parseChatScreenshot(file, {
+        shouldCancel: () => cancelledRef.current,
+        onProgress: (job) => setStatus(`解析任务 #${job.id}：${job.status} ${(job.progress * 100).toFixed(0)}%`),
+      });
       setMessages(result.messages);
       setSummary(result.summary);
       setUncertainParts(result.uncertain_parts);

@@ -54,16 +54,30 @@ export function App() {
     setBootFinished(false);
     setStatus('正在连接本地服务...');
     try {
-      const [items, nextOnboardingStatus, presets, nextTargets] = await Promise.all([
+      const [providersResult, onboardingResult, presetsResult, targetsResult] = await Promise.allSettled([
         listProviders(),
         getOnboardingStatus(),
         getStylePresets(),
         listTargets(),
       ]);
+      if (providersResult.status === 'rejected') {
+        // Providers are required to render the core workspace; fail the boot.
+        throw providersResult.reason;
+      }
+      const items = providersResult.value;
       setProviders(items);
-      setOnboardingStatus(nextOnboardingStatus);
-      setStylePresets(presets);
-      setTargets(nextTargets);
+      if (onboardingResult.status === 'fulfilled') {
+        setOnboardingStatus(onboardingResult.value);
+      }
+      if (presetsResult.status === 'fulfilled') {
+        setStylePresets(presetsResult.value);
+      }
+      if (targetsResult.status === 'fulfilled') {
+        setTargets(targetsResult.value);
+      }
+      const degraded = [onboardingResult, presetsResult, targetsResult].some(
+        (result) => result.status === 'rejected',
+      );
       const realProviders = items.filter((item) => item.type !== 'mock');
       const preferredProvider = realProviders[0] || items[0];
       if (preferredProvider) {
@@ -76,7 +90,7 @@ export function App() {
           ? { kind: 'success', message: `已加载 ${realProviderCount} 个真实 Provider，可以直接测试连通。` }
           : { kind: 'warning', message: '当前没有真实 Provider；Mock 只用于演示流程和本地链路。' },
       );
-      setStatus('已连接本地服务');
+      setStatus(degraded ? '已连接本地服务（部分数据加载失败，可稍后重试）' : '已连接本地服务');
       setProviderConnectivityOk(false);
     } catch (error) {
       const message = readableError(error, '初始化失败');

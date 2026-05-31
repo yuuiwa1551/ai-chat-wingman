@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.services.target_service import create_target, delete_target, get_target, list_targets, organize_target, update_target
+from app.jobs.runner import create_job, run_organize_target_job
+from app.services.target_service import create_target, delete_target, get_target, list_targets, update_target
 
 router = APIRouter(prefix="/targets", tags=["targets"])
 
@@ -74,9 +75,20 @@ def delete_chat_target(target_id: int, db: Session = Depends(get_db)) -> dict[st
 
 
 @router.post("/{target_id}/organize")
-async def organize_chat_target(target_id: int, payload: OrganizeTargetRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+def organize_chat_target(
+    target_id: int,
+    payload: OrganizeTargetRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict[str, int | str]:
     try:
-        target, llm_call = await organize_target(db, target_id, payload.notes)
+        get_target(db, target_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return {"target": target.to_dict(), "llm_call_id": llm_call.id}
+    job = create_job(
+        db,
+        job_type="organize_target",
+        payload={"target_id": target_id, "notes": payload.notes},
+    )
+    background_tasks.add_task(run_organize_target_job, job.id, {"target_id": target_id, "notes": payload.notes})
+    return {"job_id": job.id, "status": job.status}

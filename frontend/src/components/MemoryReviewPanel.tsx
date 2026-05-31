@@ -72,7 +72,11 @@ export function MemoryReviewPanel({ targets }: MemoryReviewPanelProps) {
           setStatus(`共 ${items.length} 条记忆`);
         }
       })
-      .catch((error: Error) => !cancelled && setStatus(error.message))
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setStatus(error instanceof Error ? error.message : '加载记忆失败');
+        }
+      })
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;

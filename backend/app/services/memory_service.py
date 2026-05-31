@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from time import perf_counter
 from typing import Any
 
@@ -12,6 +13,8 @@ from app.llm.base import LLMMessage, LLMProvider
 from app.llm.router import provider_for_task
 from app.prompts._registry import prompt_version
 from app.settings_store import utc_now
+
+logger = logging.getLogger(__name__)
 
 EXTRACT_MEMORY_PROMPT_VERSION = prompt_version("extract_memory")
 
@@ -191,10 +194,12 @@ def build_extract_memory_messages(conversation_text: str) -> list[LLMMessage]:
 def _parse_memories(text: str) -> list[dict[str, Any]]:
     payload = _extract_json_array(text)
     if payload is None:
+        logger.warning("memory extraction returned no JSON array; raw text discarded")
         return []
     try:
         parsed = json.loads(payload)
     except (json.JSONDecodeError, ValueError):
+        logger.warning("memory extraction JSON decode failed; raw payload discarded")
         return []
     if not isinstance(parsed, list):
         return []

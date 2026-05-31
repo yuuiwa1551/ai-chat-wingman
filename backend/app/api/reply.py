@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +18,8 @@ from app.services.reply_service import (
     start_reply_generation,
     stream_reply_candidates,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/reply", tags=["reply"])
 
@@ -86,7 +89,9 @@ async def generate_reply(payload: GenerateReplyRequest, db: Session = Depends(ge
                         source_conversation_id=conversation.id,
                     )
                 except Exception:  # noqa: BLE001 - memory extraction must not break replies
-                    pass
+                    logger.warning(
+                        "memory extraction failed for conversation %s", conversation.id, exc_info=True
+                    )
         except Exception as exc:
             llm_call = fail_reply_generation(db, conversation, provider, request, str(exc))
             yield encode_sse("error", {"message": str(exc), "llm_call_id": llm_call.id})

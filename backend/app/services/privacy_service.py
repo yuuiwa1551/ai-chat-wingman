@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -25,6 +25,24 @@ from app.db.models import (
 )
 from app.jobs.runner import update_job
 from app.paths import APP_DATA_DIR, BACKUPS_DIR, DB_DIR, IMPORTS_DIR, LOGS_DIR, SCREENSHOTS_DIR, ensure_app_dirs
+
+PURGE_CONFIRM_TEXT = "DELETE"
+
+# User-generated data tables, cleared on a full purge. Provider config
+# (app_settings) and seeded style presets are preserved unless explicitly asked.
+PURGEABLE_MODELS = (
+    Conversation,
+    SavedReply,
+    Memory,
+    ChatSession,
+    ChatTarget,
+    StyleTestMessage,
+    StyleTestSession,
+    UserProfileVersion,
+    UserProfile,
+    LLMCall,
+    Job,
+)
 
 COUNTED_MODELS = {
     "app_settings": AppSetting,
@@ -78,6 +96,49 @@ def export_backup(db: Session, job_id: int) -> dict[str, object]:
         "data_path": str(APP_DATA_DIR),
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
+
+
+def purge_all_data(db: Session, include_settings: bool = False) -> dict[str, object]:
+    """Delete all user-generated data and clear local data directories.
+
+    Provider configuration and seeded style presets are preserved unless
+    ``include_settings`` is True. Callers must enforce the confirmation gate.
+    """
+    ensure_app_dirs()
+    deleted_rows: dict[str, int] = {}
+    for model in PURGEABLE_MODELS:
+        result = db.execute(delete(model))
+        deleted_rows[model.__tablename__] = int(result.rowcount or 0)
+    if include_settings:
+        deleted_rows["app_settings"] = int(db.execute(delete(AppSetting)).rowcount or 0)
+        deleted_rows["style_presets"] = int(db.execute(delete(StylePreset)).rowcount or 0)
+    db.commit()
+
+    removed_files = 0
+    for directory in (SCREENSHOTS_DIR, IMPORTS_DIR, BACKUPS_DIR):
+        removed_files += _clear_directory(directory)
+    ensure_app_dirs()
+    return {
+        "deleted_rows": deleted_rows,
+        "removed_files": removed_files,
+        "include_settings": include_settings,
+    }
+
+
+def _clear_directory(directory: Path) -> int:
+    if not directory.exists():
+        return 0
+    removed = 0
+    for path in sorted(directory.rglob("*"), key=lambda item: len(item.parts), reverse=True):
+        try:
+            if path.is_file():
+                path.unlink()
+                removed += 1
+            elif path.is_dir():
+                path.rmdir()
+        except OSError:
+            continue
+    return removed
 
 
 def _table_counts(db: Session) -> dict[str, int]:

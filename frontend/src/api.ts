@@ -492,11 +492,16 @@ export async function deleteTarget(targetId: number): Promise<void> {
   await requestJson<{ ok: boolean }>(`/targets/${targetId}`, { method: 'DELETE' });
 }
 
-export async function organizeTarget(targetId: number, notes: string): Promise<{ target: ChatTarget; llm_call_id: number }> {
-  return requestJson(`/targets/${targetId}/organize`, {
+export async function organizeTarget(
+  targetId: number,
+  notes: string,
+  options: PollJobOptions = {},
+): Promise<{ target: ChatTarget; llm_call_id: number }> {
+  const started = await requestJson<{ job_id: number; status: string }>(`/targets/${targetId}/organize`, {
     method: 'POST',
     body: JSON.stringify({ notes }),
   });
+  return pollJobResult<{ target: ChatTarget; llm_call_id: number }>(started.job_id, options);
 }
 
 export async function listMemories(targetId: number, status?: MemoryStatus): Promise<Memory[]> {
@@ -535,9 +540,12 @@ export async function rejectMemory(memoryId: number): Promise<Memory> {
   return body.memory;
 }
 
-export async function parseChatScreenshot(file: File): Promise<ChatScreenshotParseResult> {
+export async function parseChatScreenshot(
+  file: File,
+  options: PollJobOptions = {},
+): Promise<ChatScreenshotParseResult> {
   const imageData = await fileToDataUrl(file);
-  return requestJson('/multimodal/parse-chat-screenshot', {
+  const started = await requestJson<{ job_id: number; status: string }>('/multimodal/parse-chat-screenshot', {
     method: 'POST',
     body: JSON.stringify({
       filename: file.name,
@@ -545,6 +553,7 @@ export async function parseChatScreenshot(file: File): Promise<ChatScreenshotPar
       image_base64: imageData,
     }),
   });
+  return pollJobResult<ChatScreenshotParseResult>(started.job_id, options);
 }
 
 export async function startQQJsonImport(payload: QQJsonImportPayload): Promise<{ job_id: number; status: string }> {
@@ -558,12 +567,64 @@ export async function getJob(jobId: number): Promise<JobRecord> {
   return requestJson(`/jobs/${jobId}`);
 }
 
+export interface PollJobOptions {
+  intervalMs?: number;
+  maxAttempts?: number;
+  shouldCancel?: () => boolean;
+  onProgress?: (job: JobRecord) => void;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+export async function pollJobResult<T>(jobId: number, options: PollJobOptions = {}): Promise<T> {
+  const { intervalMs = 500, maxAttempts = 80, shouldCancel, onProgress } = options;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (shouldCancel?.()) {
+      throw new Error('任务已取消');
+    }
+    const job = await getJob(jobId);
+    if (shouldCancel?.()) {
+      throw new Error('任务已取消');
+    }
+    onProgress?.(job);
+    if (job.status === 'success') {
+      if (!job.result) {
+        throw new Error('任务完成但没有结果');
+      }
+      return JSON.parse(job.result) as T;
+    }
+    if (job.status === 'failed') {
+      throw new Error(job.error_message || '任务失败');
+    }
+    if (job.status === 'cancelled') {
+      throw new Error('任务已取消');
+    }
+    await delay(intervalMs);
+  }
+  throw new Error('任务超时');
+}
+
 export async function getDataSummary(): Promise<DataSummary> {
   return requestJson('/privacy/data-summary');
 }
 
 export async function startDataExport(): Promise<{ job_id: number; status: string }> {
   return requestJson('/privacy/export', { method: 'POST' });
+}
+
+export interface PurgeResult {
+  deleted_rows: Record<string, number>;
+  removed_files: number;
+  include_settings: boolean;
+}
+
+export async function purgeAllData(confirmText: string, includeSettings = false): Promise<PurgeResult> {
+  return requestJson('/privacy/purge', {
+    method: 'POST',
+    body: JSON.stringify({ confirm: true, confirm_text: confirmText, include_settings: includeSettings }),
+  });
 }
 
 async function readSseResponse(response: Response, handlers: SseHandlers): Promise<void> {
@@ -575,20 +636,24 @@ async function readSseResponse(response: Response, handlers: SseHandlers): Promi
   const decoder = new TextDecoder();
   let buffer = '';
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) {
-      break;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      for (const eventText of events) {
+        handleSseEvent(eventText, handlers);
+      }
     }
-    buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split('\n\n');
-    buffer = events.pop() || '';
-    for (const eventText of events) {
-      handleSseEvent(eventText, handlers);
+    if (buffer.trim()) {
+      handleSseEvent(buffer, handlers);
     }
-  }
-  if (buffer.trim()) {
-    handleSseEvent(buffer, handlers);
+  } finally {
+    await reader.cancel().catch(() => undefined);
   }
 }
 

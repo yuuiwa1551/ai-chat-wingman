@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BackupExportResult, DataSummary, getDataSummary, getJob, startDataExport } from '../api';
+import { BackupExportResult, DataSummary, getDataSummary, getJob, purgeAllData, startDataExport } from '../api';
 
 function formatBytes(value: number): string {
   if (value < 1024) {
@@ -20,6 +20,12 @@ export function DataPanel() {
   const [exportResult, setExportResult] = useState<BackupExportResult | null>(null);
   const [status, setStatus] = useState('正在读取本地数据概览...');
   const [exporting, setExporting] = useState(false);
+  const [purgeOpen, setPurgeOpen] = useState(false);
+  const [purgeConfirmText, setPurgeConfirmText] = useState('');
+  const [purgeIncludeSettings, setPurgeIncludeSettings] = useState(false);
+  const [purging, setPurging] = useState(false);
+
+  const PURGE_CONFIRM_TEXT = 'DELETE';
 
   useEffect(() => {
     void refreshSummary();
@@ -68,6 +74,28 @@ export function DataPanel() {
       await delay(500);
     }
     throw new Error('备份任务超时');
+  }
+
+  async function handlePurge() {
+    if (purgeConfirmText !== PURGE_CONFIRM_TEXT) {
+      setStatus(`请输入 ${PURGE_CONFIRM_TEXT} 以确认清空`);
+      return;
+    }
+    setPurging(true);
+    try {
+      const result = await purgeAllData(purgeConfirmText, purgeIncludeSettings);
+      const rows = Object.values(result.deleted_rows).reduce((sum, count) => sum + count, 0);
+      setExportResult(null);
+      setPurgeOpen(false);
+      setPurgeConfirmText('');
+      setPurgeIncludeSettings(false);
+      setStatus(`已清空 ${rows} 条记录、${result.removed_files} 个文件`);
+      await refreshSummary();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '清空数据失败');
+    } finally {
+      setPurging(false);
+    }
   }
 
   return (
@@ -126,7 +154,62 @@ export function DataPanel() {
         <button type="button" disabled={exporting} onClick={() => void handleExport()}>
           {exporting ? '备份中...' : '导出本地备份'}
         </button>
+        <button
+          type="button"
+          className="secondary"
+          disabled={purging}
+          onClick={() => setPurgeOpen((open) => !open)}
+        >
+          清空全部数据
+        </button>
       </div>
+
+      {purgeOpen ? (
+        <div className="purge-confirm">
+          <p>
+            此操作会清空本地全部对象、记忆、历史、风格测试与备份文件，不可恢复。建议先导出备份。输入
+            <strong> {PURGE_CONFIRM_TEXT} </strong>
+            以确认。
+          </p>
+          <label>
+            确认词
+            <input
+              value={purgeConfirmText}
+              onChange={(event) => setPurgeConfirmText(event.target.value)}
+              placeholder={PURGE_CONFIRM_TEXT}
+            />
+          </label>
+          <label className="purge-include-settings">
+            <input
+              type="checkbox"
+              checked={purgeIncludeSettings}
+              onChange={(event) => setPurgeIncludeSettings(event.target.checked)}
+            />
+            同时清除 Provider 配置（默认保留）
+          </label>
+          <div className="actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                setPurgeOpen(false);
+                setPurgeConfirmText('');
+                setPurgeIncludeSettings(false);
+              }}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="danger"
+              disabled={purging || purgeConfirmText !== PURGE_CONFIRM_TEXT}
+              onClick={() => void handlePurge()}
+            >
+              {purging ? '清空中...' : '确认清空'}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <p className="reply-status">{status}</p>
     </section>

@@ -4,10 +4,10 @@ import json
 from time import perf_counter
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.db.models import ChatTarget, LLMCall
+from app.db.models import ChatTarget, Conversation, LLMCall, Memory, SavedReply
 from app.llm.base import LLMMessage, LLMProvider
 from app.llm.router import provider_for_task
 from app.prompts._registry import prompt_version
@@ -74,6 +74,11 @@ def update_target(db: Session, target_id: int, payload: dict[str, str | None]) -
 
 def delete_target(db: Session, target_id: int) -> None:
     target = get_target(db, target_id)
+    # The schema uses plain integer foreign keys without DB-level cascades, so
+    # clean up the rows that reference this target to avoid orphan records.
+    db.execute(delete(Memory).where(Memory.target_id == target_id))
+    db.execute(delete(SavedReply).where(SavedReply.target_id == target_id))
+    db.execute(delete(Conversation).where(Conversation.target_id == target_id))
     db.delete(target)
     db.commit()
 

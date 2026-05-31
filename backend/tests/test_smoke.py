@@ -303,7 +303,11 @@ def test_chat_targets_crud_organize_and_reply_uses_target_profile() -> None:
 
         organize_response = client.post(f"/targets/{target_id}/organize", json={"notes": "她不喜欢被催回复。"})
         assert organize_response.status_code == 200
-        assert organize_response.json()["llm_call_id"] >= 1
+        organize_job_id = organize_response.json()["job_id"]
+        organize_job = client.get(f"/jobs/{organize_job_id}").json()
+        assert organize_job["status"] == "success"
+        organize_result = json.loads(organize_job["result"])
+        assert organize_result["llm_call_id"] >= 1
 
         list_response = client.get("/targets")
         assert list_response.status_code == 200
@@ -334,7 +338,7 @@ def test_chat_targets_crud_organize_and_reply_uses_target_profile() -> None:
             assert conversation.target_name == "小夏"
             assert conversation.target_strategy is not None
             assert "不要连续追问" in conversation.target_strategy
-            llm_call = db.get(LLMCall, organize_response.json()["llm_call_id"])
+            llm_call = db.get(LLMCall, organize_result["llm_call_id"])
             assert llm_call is not None
             assert llm_call.task == "target_profile_organize"
 
@@ -356,7 +360,11 @@ def test_multimodal_screenshot_parse_can_feed_reply_generation() -> None:
             },
         )
         assert parse_response.status_code == 200
-        parsed = parse_response.json()
+        job_id = parse_response.json()["job_id"]
+
+        job = client.get(f"/jobs/{job_id}").json()
+        assert job["status"] == "success"
+        parsed = json.loads(job["result"])
         assert parsed["prompt_version"] == "parse_chat_screenshot_v1"
         assert parsed["messages"][0]["speaker"] == "target"
         assert parsed["stored_image_path"].startswith("screenshots/")
@@ -582,6 +590,36 @@ def test_privacy_data_summary_and_export_backup_job() -> None:
         with ZipFile(archive_path) as archive:
             names = archive.namelist()
         assert any(name.startswith("db/") for name in names)
+
+
+def test_privacy_purge_requires_confirmation_and_clears_data() -> None:
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        client.post("/targets", json={"name": "待清空对象", "relationship": "朋友"})
+        before = client.get("/privacy/data-summary").json()
+        assert before["table_counts"]["chat_targets"] >= 1
+
+        # Missing / wrong confirmation must not delete anything.
+        assert client.post("/privacy/purge", json={}).status_code == 400
+        assert client.post("/privacy/purge", json={"confirm": True, "confirm_text": "nope"}).status_code == 400
+        guarded = client.get("/privacy/data-summary").json()
+        assert guarded["table_counts"]["chat_targets"] >= 1
+
+        purge_response = client.post(
+            "/privacy/purge",
+            json={"confirm": True, "confirm_text": "DELETE"},
+        )
+        assert purge_response.status_code == 200
+        body = purge_response.json()
+        assert body["include_settings"] is False
+        assert body["deleted_rows"]["chat_targets"] >= 1
+
+        after = client.get("/privacy/data-summary").json()
+        assert after["table_counts"]["chat_targets"] == 0
+        assert after["table_counts"]["conversations"] == 0
+        # Provider config and seeded presets are preserved by default.
+        assert after["table_counts"]["style_presets"] >= 8
 
 
 def _sse_payload(response_text: str, event_name: str) -> dict[str, object]:
