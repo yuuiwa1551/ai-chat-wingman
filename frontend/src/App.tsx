@@ -64,11 +64,13 @@ export function App() {
         // Providers are required to render the core workspace; fail the boot.
         throw providersResult.reason;
       }
+      if (onboardingResult.status === 'rejected') {
+        // Onboarding decides whether to show the wizard or workspace; it cannot degrade safely.
+        throw onboardingResult.reason;
+      }
       const items = providersResult.value;
       setProviders(items);
-      if (onboardingResult.status === 'fulfilled') {
-        setOnboardingStatus(onboardingResult.value);
-      }
+      setOnboardingStatus(onboardingResult.value);
       if (presetsResult.status === 'fulfilled') {
         setStylePresets(presetsResult.value);
       }
@@ -85,8 +87,11 @@ export function App() {
         setProviderModels([preferredProvider.default_model || defaultProvider.default_model]);
       }
       const realProviderCount = realProviders.length;
+      const hasInvalidApiKey = items.some((item) => item.api_key_status === 'invalid');
       setProviderFeedback(
-        realProviderCount
+        hasInvalidApiKey
+          ? { kind: 'warning', message: '有 Provider 的 API Key 无法解密，请重新填写并保存。' }
+          : realProviderCount
           ? { kind: 'success', message: `已加载 ${realProviderCount} 个真实 Provider，可以直接测试连通。` }
           : { kind: 'warning', message: '当前没有真实 Provider；Mock 只用于演示流程和本地链路。' },
       );

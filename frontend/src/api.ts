@@ -3,6 +3,7 @@ export interface LlmProviderConfig {
   type: string;
   base_url?: string | null;
   api_key?: string | null;
+  api_key_status?: 'valid' | 'invalid' | 'missing';
   default_model: string;
   enabled: boolean;
 }

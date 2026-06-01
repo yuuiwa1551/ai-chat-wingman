@@ -44,9 +44,17 @@ def parse_qq_json(raw: Any, me_speakers: Iterable[str], target_name: str | None 
     if not messages:
         raise ValueError("QQ JSON contains no usable text messages")
 
+    _ensure_single_target_speaker(messages)
     speaker_counts = Counter(message.speaker for message in messages)
     inferred_target_name = target_name or _infer_target_name(messages)
     return ChatImportResult(messages=messages, speaker_counts=dict(speaker_counts), target_name=inferred_target_name)
+
+
+def _ensure_single_target_speaker(messages: list[ImportedChatMessage]) -> None:
+    target_speakers = sorted({message.speaker for message in messages if message.role == "target" and message.speaker != "unknown"})
+    if len(target_speakers) > 1:
+        preview = ", ".join(target_speakers[:5])
+        raise ValueError(f"Multiple target speakers detected in QQ JSON: {preview}. Import one private chat at a time.")
 
 
 def _find_message_records(raw: Any, depth: int = 0) -> list[dict[str, Any]]:

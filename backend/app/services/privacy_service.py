@@ -115,7 +115,7 @@ def purge_all_data(db: Session, include_settings: bool = False) -> dict[str, obj
     db.commit()
 
     removed_files = 0
-    for directory in (SCREENSHOTS_DIR, IMPORTS_DIR, BACKUPS_DIR):
+    for directory in (SCREENSHOTS_DIR, IMPORTS_DIR, BACKUPS_DIR, LOGS_DIR):
         removed_files += _clear_directory(directory)
     if include_settings and SECRET_KEY_PATH.exists():
         try:

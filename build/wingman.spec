@@ -9,6 +9,7 @@ frontend_dist = project_root / "frontend" / "dist"
 datas = []
 if frontend_dist.exists():
     datas.append((str(frontend_dist), "frontend/dist"))
+datas.append((str(backend_root / "app" / "db" / "migrations"), "app/db/migrations"))
 
 a = Analysis(
     [str(backend_root / "run_desktop.py")],

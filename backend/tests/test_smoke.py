@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import sqlite3
 import time
 
 from fastapi.testclient import TestClient
@@ -15,6 +16,69 @@ def test_paths_create_app_dirs() -> None:
     assert str(paths.APP_DATA_DIR) == os.environ["AI_CHAT_WINGMAN_DATA_DIR"]
     assert paths.database_path().parent.exists()
     assert paths.SCREENSHOTS_DIR.exists()
+
+
+def test_initialize_database_repairs_legacy_unversioned_schema() -> None:
+    from app.paths import database_path
+
+    db_path = database_path()
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        """
+        CREATE TABLE chat_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title VARCHAR,
+            target_name VARCHAR,
+            target_strategy TEXT,
+            created_at VARCHAR NOT NULL,
+            updated_at VARCHAR NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_session_id INTEGER NOT NULL,
+            profile_id INTEGER,
+            profile_version INTEGER,
+            prompt_version VARCHAR NOT NULL,
+            llm_call_id INTEGER,
+            input_text TEXT NOT NULL,
+            target_name VARCHAR,
+            target_strategy TEXT,
+            reply_goal VARCHAR NOT NULL,
+            tone VARCHAR NOT NULL,
+            length VARCHAR NOT NULL,
+            proactivity FLOAT NOT NULL,
+            risk_level VARCHAR NOT NULL,
+            generated_replies TEXT,
+            selected_reply TEXT,
+            created_at VARCHAR NOT NULL,
+            updated_at VARCHAR NOT NULL
+        )
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    from app.db.database import initialize_database
+
+    initialize_database()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        chat_session_columns = {row[1] for row in connection.execute("PRAGMA table_info(chat_sessions)")}
+        conversation_columns = {row[1] for row in connection.execute("PRAGMA table_info(conversations)")}
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        version = connection.execute("SELECT version_num FROM alembic_version").fetchone()
+    finally:
+        connection.close()
+
+    assert "target_id" in chat_session_columns
+    assert "target_id" in conversation_columns
+    assert {"memories", "saved_replies", "chat_targets"}.issubset(tables)
+    assert version is not None
 
 
 def test_health_and_demo_sse() -> None:
@@ -112,6 +176,39 @@ def test_provider_update_preserves_existing_secret_when_masked_or_empty() -> Non
 
     assert secret_box.decrypt(remote["api_key"]) == "real-secret"
     assert remote["default_model"] == "chat-b"
+
+
+def test_provider_settings_survive_lost_secret_key() -> None:
+    from app.db.database import SessionLocal
+    from app.main import create_app
+    from app.paths import SECRET_KEY_PATH
+    from app.settings_store import set_providers
+
+    with TestClient(create_app()) as client:
+        payload = {
+            "id": "remote-lost-key",
+            "type": "openai_compatible",
+            "base_url": "https://api.example.test/v1",
+            "api_key": "lost-secret",
+            "default_model": "chat-a",
+            "enabled": True,
+        }
+        assert client.put("/settings/llm/providers/remote-lost-key", json=payload).status_code == 200
+        assert SECRET_KEY_PATH.exists()
+        SECRET_KEY_PATH.unlink()
+
+        providers_response = client.get("/settings/llm/providers")
+        assert providers_response.status_code == 200
+        provider = next(item for item in providers_response.json()["providers"] if item["id"] == "remote-lost-key")
+        assert provider["api_key_status"] == "invalid"
+        assert provider.get("api_key") in (None, "")
+
+        test_response = client.post("/settings/llm/providers/remote-lost-key/test")
+        assert test_response.status_code == 502
+        assert "requires api_key" in test_response.json()["detail"]
+
+    with SessionLocal() as db:
+        set_providers(db, [{"id": "local-mock", "type": "mock", "default_model": "mock-chat", "enabled": True}])
 
 
 def test_secret_box_roundtrip_and_legacy_plaintext() -> None:
@@ -455,7 +552,7 @@ def test_memory_lifecycle_extract_approve_and_feed_reply() -> None:
 
         created = client.post(
             f"/targets/{target_id}/memories",
-            json={"content": "对方不喜欢一上来就被追问近况。", "memory_type": "warning", "confidence": 0.8},
+            json={"content": "对方不喜欢一上来就被追问近况。", "memory_type": "warning", "confidence": 0.8, "status": "approved"},
         ).json()["memory"]
         assert created["status"] == "pending"
 
@@ -534,6 +631,23 @@ def test_qq_json_import_job_creates_profile_and_target() -> None:
             assert target.strategy_guideline is not None
             versions = db.query(UserProfileVersion).filter(UserProfileVersion.profile_id == profile.id).all()
             assert any(version.merge_reason == "chat_import_create" and version.source_job_id == job_id for version in versions)
+
+
+def test_qq_json_import_rejects_multiple_target_speakers() -> None:
+    import pytest
+
+    from app.importers.qq_json_importer import parse_qq_json
+
+    raw_chat = {
+        "messages": [
+            {"sender": "我", "content": "收到"},
+            {"sender": "小夏", "content": "今天好累"},
+            {"sender": "小林", "content": "我也累"},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Multiple target speakers detected"):
+        parse_qq_json(raw_chat, me_speakers=["我"])
 
 
 def test_history_search_and_favorite_reply() -> None:
@@ -621,9 +735,13 @@ def test_privacy_data_summary_and_export_backup_job() -> None:
 
 def test_privacy_purge_requires_confirmation_and_clears_data() -> None:
     from app.main import create_app
+    from app.paths import LOGS_DIR
 
     with TestClient(create_app()) as client:
         client.post("/targets", json={"name": "待清空对象", "relationship": "朋友"})
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        probe_log = LOGS_DIR / "probe.log"
+        probe_log.write_text("temporary log", encoding="utf-8")
         before = client.get("/privacy/data-summary").json()
         assert before["table_counts"]["chat_targets"] >= 1
 
@@ -645,6 +763,7 @@ def test_privacy_purge_requires_confirmation_and_clears_data() -> None:
         after = client.get("/privacy/data-summary").json()
         assert after["table_counts"]["chat_targets"] == 0
         assert after["table_counts"]["conversations"] == 0
+        assert not probe_log.exists()
         # Provider config and seeded presets are preserved by default.
         assert after["table_counts"]["style_presets"] >= 8
 

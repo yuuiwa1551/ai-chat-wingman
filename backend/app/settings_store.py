@@ -46,7 +46,16 @@ def get_providers(db: Session) -> list[dict[str, Any]]:
         item = dict(provider)
         api_key = item.get("api_key")
         if isinstance(api_key, str) and secret_box.is_encrypted(api_key):
-            item["api_key"] = secret_box.decrypt(api_key)
+            try:
+                item["api_key"] = secret_box.decrypt(api_key)
+                item["api_key_status"] = "valid"
+            except ValueError:
+                item["api_key"] = ""
+                item["api_key_status"] = "invalid"
+        elif isinstance(api_key, str) and api_key:
+            item["api_key_status"] = "valid"
+        else:
+            item["api_key_status"] = "missing"
         decrypted.append(item)
     return decrypted
 
@@ -56,6 +65,7 @@ def set_providers(db: Session, providers: list[dict[str, Any]]) -> None:
     stored: list[dict[str, Any]] = []
     for provider in providers:
         item = dict(provider)
+        item.pop("api_key_status", None)
         api_key = item.get("api_key")
         if isinstance(api_key, str) and api_key:
             item["api_key"] = secret_box.encrypt(api_key)

@@ -23,7 +23,6 @@ class MemoryCreate(BaseModel):
     content: str = Field(min_length=1, max_length=2000)
     memory_type: str | None = Field(default=None, max_length=40)
     confidence: float = Field(default=0.7, ge=0.0, le=1.0)
-    status: str = Field(default="pending", max_length=20)
     source_conversation_id: int | None = None
 
 
@@ -57,7 +56,7 @@ def read_target_memories(
 def create_target_memory(target_id: int, payload: MemoryCreate, db: Session = Depends(get_db)) -> dict[str, object]:
     try:
         get_target(db, target_id)
-        memory = create_memory(db, target_id=target_id, **payload.model_dump())
+        memory = create_memory(db, target_id=target_id, status="pending", **payload.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"memory": memory.to_dict()}

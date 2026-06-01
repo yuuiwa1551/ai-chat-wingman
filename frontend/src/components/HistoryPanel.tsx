@@ -13,6 +13,22 @@ function preview(value: string | null, fallback = '无内容'): string {
   return cleaned.length > 160 ? `${cleaned.slice(0, 160)}...` : cleaned;
 }
 
+function generatedReplyPreview(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (Array.isArray(parsed)) {
+      const firstReply = parsed.find((item) => typeof item === 'string' && item.trim());
+      return typeof firstReply === 'string' ? firstReply : null;
+    }
+  } catch {
+    return value;
+  }
+  return value;
+}
+
 export function HistoryPanel({ targets }: HistoryPanelProps) {
   const [query, setQuery] = useState('');
   const [targetId, setTargetId] = useState<number | null>(null);
@@ -88,7 +104,7 @@ export function HistoryPanel({ targets }: HistoryPanelProps) {
                   <span>{conversation.target_name || '未命名对象'}</span>
                 </div>
                 <p>{preview(conversation.input_text)}</p>
-                <small>{preview(conversation.selected_reply || conversation.generated_replies, '尚未选择回复')}</small>
+                <small>{preview(conversation.selected_reply || generatedReplyPreview(conversation.generated_replies), '尚未选择回复')}</small>
               </article>
             ))}
           </div>

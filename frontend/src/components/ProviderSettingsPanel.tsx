@@ -42,10 +42,13 @@ export function ProviderSettingsPanel({
   const isMock = provider.type === 'mock';
   const hasBaseUrl = Boolean(provider.base_url?.trim());
   const hasApiKey = Boolean(provider.api_key?.trim()) || hasStoredApiKey;
+  const apiKeyInvalid = provider.api_key_status === 'invalid';
   const hasModel = Boolean(provider.default_model?.trim());
   const readyForNetworkTest = !isMock && hasBaseUrl && hasApiKey && hasModel;
   const nextAction = isMock
     ? '切换到 openai_compatible 后填写真实模型配置。'
+    : apiKeyInvalid
+      ? '本机 API Key 密钥文件已失效，请重新填写并保存。'
     : readyForNetworkTest
       ? '现在可以检测模型或直接测试连通。'
       : '补齐 Base URL、API Key 和模型名后再测试。';
@@ -79,7 +82,7 @@ export function ProviderSettingsPanel({
           <div className={`provider-step ${!isMock && hasBaseUrl && hasApiKey ? 'ready' : 'pending'}`}>
             <span>2</span>
             <strong>填写连接信息</strong>
-            <p>{hasStoredApiKey ? '已保存 API Key，可留空保留。' : 'Base URL 和 API Key 都需要填写。'}</p>
+            <p>{apiKeyInvalid ? '已保存的 API Key 无法解密，需要重新填写。' : hasStoredApiKey ? '已保存 API Key，可留空保留。' : 'Base URL 和 API Key 都需要填写。'}</p>
           </div>
           <div className={`provider-step ${!isMock && hasModel ? 'ready' : 'pending'}`}>
             <span>3</span>
@@ -141,7 +144,7 @@ export function ProviderSettingsPanel({
             API Key
             <input
               type="password"
-              placeholder={hasStoredApiKey ? '已保存，可留空保留原 key' : 'OpenAI-compatible 需要填写 API Key'}
+              placeholder={apiKeyInvalid ? '本机密钥失效，请重新填写 API Key' : hasStoredApiKey ? '已保存，可留空保留原 key' : 'OpenAI-compatible 需要填写 API Key'}
               value={provider.api_key === '***' ? '' : provider.api_key || ''}
               onChange={(event) => onProviderChange({ ...provider, api_key: event.target.value })}
             />
